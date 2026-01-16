@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nodemon ./bin/www",
-    "start": "node ./bin/www",
+    "start": "PORT=8002 node ./bin/www",
     "seed": "node ./src/database/seed.js"
   },
   "prisma": {
@@ -52,6 +52,7 @@
     "eslint-plugin-prettier": "^5.1.2",
     "eslint-plugin-react": "^7.28.0",
     "eslint-plugin-react-hooks": "^4.3.0",
+    "nodemon": "^3.1.11",
     "prettier": "^3.1.1",
     "prisma": "^5.7.1"
   }

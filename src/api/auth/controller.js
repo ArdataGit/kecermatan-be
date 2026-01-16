@@ -3,46 +3,83 @@ const Joi = require('joi');
 
 const { StatusCodes } = require('http-status-codes');
 const { BadRequestError } = require('../../errors');
+const moment = require('moment');
 
 const database = require('#database');
 const { generateToken, sendMail, isTokenValid } = require('#utils');
-
 const register = async (req, res, next) => {
   const schema = Joi.object({
-    name: Joi.string().min(3).max(30).required(),
+    name: Joi.string().min(3).required(),
     email: Joi.string().email().required(),
     password: Joi.string().min(8).required(),
     noWA: Joi.string(),
+    affiliate_code: Joi.string().allow(null, ''), // tambahkan agar bisa input kode affiliate
   });
 
   try {
     const validate = await schema.validateAsync(req.body);
 
+    // Cek apakah email sudah digunakan
     const isEmailExist = await database.User.findUnique({
-      where: {
-        email: validate.email,
-      },
+      where: { email: validate.email },
     });
-
     if (isEmailExist) throw new BadRequestError('Email telah digunakan');
 
-    const isNoWAExist = await database.User.findFirst({
-      where: {
-        noWA: validate.noWA,
-      },
-    });
+    // Cek apakah noWA sudah digunakan
+    if (validate.noWA) {
+      const isNoWAExist = await database.User.findFirst({
+        where: { noWA: validate.noWA },
+      });
+      if (isNoWAExist) throw new BadRequestError('No Whatsapp telah digunakan');
+    }
 
-    if (isNoWAExist) throw new BadRequestError('No Whatsapp telah digunakan');
+    // Cek kode affiliate (referrer)
+    let affiliateFromUserId = null;
+    if (validate.affiliate_code) {
+      const referrerUser = await database.User.findFirst({
+        where: { affiliateCode: validate.affiliate_code },
+      });
+      if (referrerUser) {
+        affiliateFromUserId = referrerUser.id;
+      }
+    }
 
+    // Generate affiliateCode unik untuk user baru
+    let affiliateCode;
+    let unique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!unique && attempts < maxAttempts) {
+      attempts++;
+      affiliateCode = `AFFU${moment().unix()}${Math.floor(Math.random() * 900 + 100)}`;
+      const exists = await database.User.findFirst({
+        where: { affiliateCode },
+      });
+      if (!exists) unique = true;
+      else await new Promise((r) => setTimeout(r, 50));
+    }
+
+    if (!unique) throw new BadRequestError('Gagal membuat kode afiliasi unik. Silakan coba lagi.');
+
+    // Buat user baru
     const user = await database.User.create({
       data: {
-        ...validate,
+        name: validate.name,
+        email: validate.email,
         password: bcrypt.hashSync(validate.password, 10),
+        noWA: validate.noWA || null,
+        affiliateFromUserId: affiliateFromUserId, // ✅ perbaikan di sini
+        affiliateCode,
+        affiliateLink: `https://bimbel.fungsional.id/auth/register/${affiliateCode}`,
+        affiliateStatus: 'active',
+        affiliateCommission: 0,
+        affiliateBalance: 0.0,
       },
     });
 
+    // Kirim email konfirmasi
     const token = generateToken(user);
-
     sendMail({
       to: user.email,
       subject: 'Please Confirm Your Email',
@@ -51,6 +88,7 @@ const register = async (req, res, next) => {
       url: `${process.env.URL_SERVER}/auth/confirm-email/${token}`,
     });
 
+    // Response sukses
     res.status(StatusCodes.CREATED).json({
       data: user,
       msg: 'User created',
@@ -59,6 +97,8 @@ const register = async (req, res, next) => {
     next(error);
   }
 };
+
+
 
 const login = async (req, res, next) => {
   try {
@@ -160,7 +200,7 @@ const forgotPassword = async (req, res, next) => {
 
     sendMail({
       to: user.email,
-      subject: 'Reset Password',
+      subject: 'Reset Password Fungsional',
       template: 'forgot-password.html',
       name: user.name,
       url: `${process.env.URL_CLIENT}/auth/reset-password/${token}`,

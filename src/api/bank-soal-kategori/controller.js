@@ -106,6 +106,7 @@ const insert = async (req, res, next) => {
       kkm: Joi.number().allow(null, '', 0),
       parentCategoryId: Joi.number().allow(null, ''),
       tipePenilaian: Joi.string().required(),
+      paketRekomendasiId: Joi.number().allow(null), // Added validation for paketRekomendasiId
     });
 
     const validate = await schema.validateAsync(
@@ -114,6 +115,20 @@ const insert = async (req, res, next) => {
         stripUnknown: true,
       }
     );
+    
+    
+    // Validate paketRekomendasiId exists in PaketPembelian if provided
+    if (validate.paketRekomendasiId) {
+      const paketPembelian = await database.paketPembelian.findUnique({
+        where: {
+          id: validate.paketRekomendasiId,
+        },
+      });
+      if (!paketPembelian) {
+        throw new BadRequestError('Paket Pembelian untuk paketRekomendasiId tidak ditemukan');
+      }
+    }
+    
     const data = {
       data: {
         ...validate,
@@ -147,6 +162,7 @@ const update = async (req, res, next) => {
       kkm: Joi.number().allow(null, '', 0),
       parentCategoryId: Joi.number().allow(null, ''),
       tipePenilaian: Joi.string().required(),
+      paketRekomendasiId: Joi.number().allow(null), // Added validation for paketRekomendasiId
     });
 
     const validate = await schema.validateAsync(
@@ -166,6 +182,18 @@ const update = async (req, res, next) => {
     });
 
     if (!isExist) throw new BadRequestError('Kategori tidak ditemukan');
+    
+    // Validate paketRekomendasiId exists in PaketPembelian if provided
+    if (validate.paketRekomendasiId) {
+      const paketPembelian = await database.paketPembelian.findUnique({
+        where: {
+          id: validate.paketRekomendasiId,
+        },
+      });
+      if (!paketPembelian) {
+        throw new BadRequestError('Paket Pembelian untuk paketRekomendasiId tidak ditemukan');
+      }
+    }
 
     const data = {
       data: {

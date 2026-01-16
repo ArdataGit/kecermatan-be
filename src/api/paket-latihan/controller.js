@@ -20,7 +20,6 @@ const get = async (req, res, next) => {
       database.paketLatihan.findMany({
         skip: validate.skip,
         ...(validate.take === 0 ? {} : { take: validate.take }),
-        // take: validate.take === 0 ? 10 : validate.take,
         orderBy: {
           [validate.sortBy]: validate.descending ? 'desc' : 'asc',
         },
@@ -43,6 +42,7 @@ const get = async (req, res, next) => {
     next(error);
   }
 };
+
 const getPenjualan = async (req, res, next) => {
   try {
     const schema = Joi.object({
@@ -239,6 +239,7 @@ const update = async (req, res, next) => {
 
     if (!isExist) throw new BadRequestError('Paket latihan tidak ditemukan');
 
+
     if (req?.file?.path) {
       deleteFile(isExist.banner);
     }
@@ -302,6 +303,17 @@ const finishPayment = async (req, res, next) => {
       where: {
         id: validate.id,
       },
+      include: {
+        affiliateUser: {
+          select: {
+            id: true,
+            commissionType: true,
+            affiliateCommission: true,
+            affiliateStatus: true,
+            affiliateBalance: true,
+          },
+        },
+      },
     });
 
     if (!checkPembelian) throw new BadRequestError('Pembelian tidak ditemukan');
@@ -309,24 +321,74 @@ const finishPayment = async (req, res, next) => {
     if (checkPembelian.status === 'PAID')
       throw new BadRequestError('Pembelian sudah selesai');
 
-    await database.pembelian.update({
-      where: {
-        id: validate.id,
-      },
-      data: {
-        status: 'PAID',
-        paidAt: new Date(),
-      },
-    });
-    await database.notificationUser.create({
-      data: {
-        user: { connect: { id: checkPembelian.userId } },
-        title: 'Pembelian Berhasil',
-        keterangan: `Anda telah membeli paket ${checkPembelian.namaPaket}, silahkan cek paket anda di halaman riwayat pembelian`,
-        url: '/paket-pembelian/riwayat',
-        type: 'SYSTEM',
-        status: 'PAYMENT_SUCCESS',
-      },
+    // Jika belum ada expiredAt dan ada durasi, set expiredAt
+    const updateData = {
+      status: 'PAID',
+      paidAt: new Date(),
+    };
+    if (!checkPembelian.expiredAt && checkPembelian.duration > 0) {
+      updateData.expiredAt = new Date(Date.now() + checkPembelian.duration * 31 * 24 * 60 * 60 * 1000); // Rough 31 days per month
+    }
+
+    await database.$transaction(async (tx) => {
+      // Update pembelian status
+      await tx.pembelian.update({
+        where: {
+          id: validate.id,
+        },
+        data: updateData,
+      });
+
+      // Handle affiliate commission jika ada
+      if (checkPembelian.affiliateUserId && checkPembelian.affiliateUser) {
+        const affiliate = checkPembelian.affiliateUser;
+        if (affiliate.affiliateStatus === 'active') {
+          let commission = 0;
+          const amount = checkPembelian.amount;
+
+          if (affiliate.commissionType === 'percent') {
+            commission = Math.floor((amount * affiliate.affiliateCommission) / 100);
+          } else if (affiliate.commissionType === 'nominal') {
+            commission = affiliate.affiliateCommission;
+          }
+
+          if (commission > 0) {
+            // Update balance affiliate
+            await tx.user.update({
+              where: { id: affiliate.id },
+              data: {
+                affiliateBalance: {
+                  increment: commission,
+                },
+              },
+            });
+
+            // Optional: Notifikasi ke affiliate tentang komisi baru
+            await tx.notificationUser.create({
+              data: {
+                user: { connect: { id: affiliate.id } },
+                title: 'Komisi Affiliate Baru',
+                keterangan: `Anda mendapatkan komisi Rp ${commission} dari pembelian paket "${checkPembelian.namaPaket}" oleh user.`,
+                url: '/affiliate/riwayat', // Sesuaikan dengan route affiliate
+                type: 'SYSTEM',
+                status: 'PAYMENT_SUCCESS',
+              },
+            });
+          }
+        }
+      }
+
+      // Notifikasi ke buyer
+      await tx.notificationUser.create({
+        data: {
+          user: { connect: { id: checkPembelian.userId } },
+          title: 'Pembelian Berhasil',
+          keterangan: `Anda telah membeli paket ${checkPembelian.namaPaket}, silahkan cek paket anda di halaman riwayat pembelian`,
+          url: '/paket-pembelian/riwayat',
+          type: 'SYSTEM',
+          status: 'PAYMENT_SUCCESS',
+        },
+      });
     });
 
     return res.status(200).json({

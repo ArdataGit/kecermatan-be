@@ -69,6 +69,8 @@ const getFeeMerchant = async (req, res, next) => {
 
 const getMerchantList = async (req, res, next) => {
   try {
+    console.log(`${process.env.TRIPAY_LINK}/merchant/payment-channel`);
+
     const result = await axios.get(
       `${process.env.TRIPAY_LINK}/merchant/payment-channel`,
       {
@@ -82,6 +84,7 @@ const getMerchantList = async (req, res, next) => {
     next(error);
   }
 };
+
 const createPayment = async (req, res, next) => {
   try {
     const schema = Joi.object({
@@ -93,26 +96,21 @@ const createPayment = async (req, res, next) => {
     const validate = await schema.validateAsync(req.body, {
       stripUnknown: true,
     });
-
     const checkingPaket = await database.paketPembelian.findUnique({
       where: {
         id: validate.paketPembelianId,
       },
     });
-
     if (!checkingPaket)
       throw new BadRequestError('Paket pembelian tidak ditemukan');
-
     let harga = checkingPaket.harga;
     const discount = {};
-
     const checkPembelian = await database.pembelian.findMany({
       where: {
         userId: req?.user?.id,
         status: 'PAID',
       },
     });
-
     const checkActiveAlumniVoucher = await database.voucher.findFirst({
       where: {
         tipe: 'ALUMNI',
@@ -123,20 +121,17 @@ const createPayment = async (req, res, next) => {
         createdAt: 'desc',
       },
     });
-
     if (checkPembelian.length > 0 && checkActiveAlumniVoucher) {
       if (checkActiveAlumniVoucher.tipePotongan === 'PERSEN') {
         harga -= (harga * checkActiveAlumniVoucher.value) / 100;
         discount.voucherAlumniValue =
           (harga * checkActiveAlumniVoucher.value) / 100;
       }
-
       if (checkActiveAlumniVoucher.tipePotongan === 'HARGA') {
         harga -= checkActiveAlumniVoucher.value;
         discount.voucherAlumniValue = checkActiveAlumniVoucher.value;
       }
     }
-
     if (validate.discountCode) {
       const checkingDiscount = await database.voucher.findFirst({
         where: {
@@ -144,16 +139,13 @@ const createPayment = async (req, res, next) => {
           deletedAt: null,
         },
       });
-
       if (!checkingDiscount)
         throw new BadRequestError('Kode diskon tidak ditemukan');
-
       const checkSpesificProduct = await database.voucherProduct.findMany({
         where: {
           voucherId: checkingDiscount.id,
         },
       });
-
       if (checkSpesificProduct.length > 0) {
         const checkProduct = checkSpesificProduct.find(
           (e) => e.paketId === validate.paketPembelianId
@@ -163,44 +155,81 @@ const createPayment = async (req, res, next) => {
             'Voucher tidak bisa digunakan untuk produk ini'
           );
       }
-
       if (checkingDiscount.tipePotongan === 'PERSEN') {
         harga -= (harga * checkingDiscount.value) / 100;
         discount.voucherCode = checkingDiscount.kode;
         discount.voucherValue = (harga * checkingDiscount.value) / 100;
       }
-
       if (checkingDiscount.tipePotongan === 'HARGA') {
         harga -= checkingDiscount.value;
         discount.voucherCode = checkingDiscount.kode;
         discount.voucherValue = checkingDiscount.value;
       }
     }
+    // ✅ Fix: Explicitly fetch user data to get affiliateFromUserId
+    const user = await database.user.findUnique({
+      where: { id: req.user.id },
+      select: { affiliateFromUserId: true },
+    });
+    const affiliateUserId = user?.affiliateFromUserId || null;
+
+    // ✅ Tambah: Fetch affiliate user untuk ambil komisi dan tipe
+    let affiliateCommissionData = null;
+    if (affiliateUserId) {
+      const affiliateUser = await database.user.findUnique({
+        where: { id: affiliateUserId },
+        select: { affiliateCommission: true, commissionType: true },
+      });
+      if (affiliateUser) {
+        affiliateCommissionData = {
+          type: affiliateUser.commissionType || 'percent',
+          amount: affiliateUser.affiliateCommission || 0,
+        };
+      }
+    }
+
+    // ✅ Hitung affiliate_commission_amount berdasarkan tipe
+    let affiliateCommissionAmount = 0;
+    let affiliateCommissionType = 'percent'; // ✅ Fix: Default to 'percent' instead of null (enum is non-nullable)
+    if (affiliateCommissionData) {
+      affiliateCommissionType = affiliateCommissionData.type;
+      if (affiliateCommissionData.type === 'percent') {
+        affiliateCommissionAmount =
+          harga * (affiliateCommissionData.amount / 100);
+      } else if (affiliateCommissionData.type === 'nominal') {
+        affiliateCommissionAmount = affiliateCommissionData.amount;
+      }
+    }
 
     if (harga > 0) {
       const result = await database.pembelian.create({
         data: {
-          user: { connect: { id: req.user?.id } }, // Assuming you want to associate the purchase with a user
-          paketPembelian: { connect: { id: validate.paketPembelianId } },
+          // ✅ Fix: Use direct foreign keys instead of connect (avoids relation recognition issues)
+          userId: req.user?.id,
+          paketPembelianId: validate.paketPembelianId,
           status: 'UNPAID',
           duration: checkingPaket.durasi,
           expiredAt: checkingPaket.durasi
-            ? moment().add(checkingPaket.durasi * 31, 'days')
+            ? moment()
+                .add(checkingPaket.durasi * 31, 'days')
+                .toDate()
             : null,
           namaPaket: checkingPaket.nama,
           amount: harga,
-
+          // ✅ Fix: Use direct FK for affiliate (conditional)
+          ...(affiliateUserId ? { affiliateUserId } : {}),
+          // ✅ Tambah: Masukkan komisi affiliate (type now always valid)
+          affiliate_commission_amount: affiliateCommissionAmount,
+          affiliate_commission_type: affiliateCommissionType,
           invoice: generateUniqueINV(),
           paymentMethod: validate.code,
           ...discount,
         },
       });
-
       const signature = crypto
         .createHmac('sha256', privateKey)
         .update(merchantCode + result.invoice + harga)
         .digest('hex');
-
       const payment = await axios.post(
         `${process.env.TRIPAY_LINK}/transaction/create`,
         {
@@ -226,10 +255,10 @@ const createPayment = async (req, res, next) => {
           },
         }
       );
-
       await database.notificationUser.create({
         data: {
-          user: { connect: { id: req.user?.id } },
+          // ✅ Fix: Same here—use direct FK
+          userId: req.user?.id,
           title: 'Menunggu Pembayaran',
           keterangan: `Anda telah membeli paket ${checkingPaket.nama}, segera lakukan pembayaran untuk dapat mengakses paket tersebut`,
           type: 'SYSTEM',
@@ -237,7 +266,6 @@ const createPayment = async (req, res, next) => {
           url: payment.data.data.checkout_url,
         },
       });
-
       await database.pembelian.update({
         where: {
           id: result.id,
@@ -246,7 +274,6 @@ const createPayment = async (req, res, next) => {
           paymentUrl: payment.data.data.checkout_url,
         },
       });
-
       res.status(200).json({
         data: payment.data.data,
         msg: 'Berhasil membuat pembayaran',
@@ -254,8 +281,9 @@ const createPayment = async (req, res, next) => {
     } else {
       const result = await database.pembelian.create({
         data: {
-          user: { connect: { id: req.user?.id } }, // Assuming you want to associate the purchase with a user
-          paketPembelian: { connect: { id: validate.paketPembelianId } },
+          // ✅ Fix: Same direct FKs as above
+          userId: req.user?.id,
+          paketPembelianId: validate.paketPembelianId,
           status: 'PAID',
           duration: checkingPaket.durasi,
           expiredAt: checkingPaket.durasi
@@ -265,6 +293,11 @@ const createPayment = async (req, res, next) => {
             : null,
           namaPaket: checkingPaket.nama,
           amount: 0,
+          // ✅ Fix: Use direct FK for affiliate (conditional)
+          ...(affiliateUserId ? { affiliateUserId } : {}),
+          // ✅ Tambah: Masukkan komisi affiliate (type now always valid)
+          affiliate_commission_amount: affiliateCommissionAmount,
+          affiliate_commission_type: affiliateCommissionType,
           invoice: generateUniqueINV(),
           paymentMethod: validate.code,
           paidAt: new Date(),
@@ -273,7 +306,8 @@ const createPayment = async (req, res, next) => {
       });
       await database.notificationUser.create({
         data: {
-          user: { connect: { id: req.user?.id } },
+          // ✅ Fix: Use direct FK here too
+          userId: req.user?.id,
           title: 'Pembelian Berhasil',
           keterangan: `Anda telah membeli paket ${checkingPaket.nama}, silahkan cek paket anda di halaman riwayat pembelian`,
           url: '/paket-pembelian/riwayat',
@@ -281,13 +315,13 @@ const createPayment = async (req, res, next) => {
           status: 'PAYMENT_SUCCESS',
         },
       });
-
       res.status(200).json({
         data: result,
         msg: 'Berhasil membuat pembayaran',
       });
     }
   } catch (error) {
+    console.error('createPayment error:', error);
     next(error);
   }
 };

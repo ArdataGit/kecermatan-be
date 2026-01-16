@@ -35,12 +35,13 @@ const changeProfile = async (req, res, next) => {
       deleteFile(isExist.banner);
     }
 
-    const result = await database.user.update({
-      where: {
+   const result = await database.user.update({
+       where: {
         id: req?.user?.id,
       },
       data: {
         name: validate.name,
+        email: validate.email, // perbaikan ✅
         noWA: validate.noWA,
         alamat: validate.alamat,
         provinsi: validate.provinsi,
@@ -267,6 +268,7 @@ const getMyClass = async (req, res, next) => {
               keterangan: true,
               durasi: true,
               gambar: true,
+              linkWa:true,
               paketPembelianFitur: true,
               _count: {
                 select: {

@@ -544,7 +544,8 @@ const statistic = async (req, res, next) => {
       id: Joi.number().required(),
     });
     const validate = await schema.validateAsync(req.query);
-    const result = await database.$queryRaw`SELECT
+    const result = await database.$queryRaw`
+SELECT
     t.id,
     t.userId,
     t.paketLatihanId,
@@ -558,25 +559,30 @@ const statistic = async (req, res, next) => {
     t.waktuPengerjaan,
     (
         SELECT
-            CONCAT('[', IFNULL(GROUP_CONCAT(
-               JSON_OBJECT(
-                'category', subquery.category,
-                'point1', COALESCE(subquery.point1, 0),
-                'point2', COALESCE(subquery.point2, 0),
-                'point3', COALESCE(subquery.point3, 0),
-                'point4', COALESCE(subquery.point4, 0),
-                'point5', COALESCE(subquery.point5, 0),
-                'tipe_penilaian', subquery.tipePenilaian,
-                'kkm', subquery.kkm,
-                'maxPoint', subquery.maxPoint,
-                'all_point', COALESCE(subquery.all_point, 0),
-                'answer_right', COALESCE(subquery.isCorrect, 0),
-                'answer_wrong', COALESCE(subquery.isWrong, 0),
-                'not_answer', COALESCE(subquery.isNotAnswer, 0),
-                'count_soal', COALESCE(subquery.countSoal, 0),
-                'subCategory', subquery.subCategory
+            CONCAT(
+                '[', 
+                IFNULL(GROUP_CONCAT(
+                    JSON_OBJECT(
+                        'category', subquery.category,
+                        'point1', COALESCE(subquery.point1, 0),
+                        'point2', COALESCE(subquery.point2, 0),
+                        'point3', COALESCE(subquery.point3, 0),
+                        'point4', COALESCE(subquery.point4, 0),
+                        'point5', COALESCE(subquery.point5, 0),
+                        'tipe_penilaian', subquery.tipePenilaian,
+                        'kkm', subquery.kkm,
+                        'maxPoint', subquery.maxPoint,
+                        'all_point', COALESCE(subquery.all_point, 0),
+                        'answer_right', COALESCE(subquery.isCorrect, 0),
+                        'answer_wrong', COALESCE(subquery.isWrong, 0),
+                        'not_answer', COALESCE(subquery.isNotAnswer, 0),
+                        'count_soal', COALESCE(subquery.countSoal, 0),
+                        'subCategory', subquery.subCategory,
+                        'paketRekomendasi', subquery.paketRekomendasi
+                    )
+                ), ''), 
+                ']'
             )
-            ), ''), ']')
         FROM (
             SELECT
                 ts.category,
@@ -597,10 +603,23 @@ const statistic = async (req, res, next) => {
                     JSON_OBJECT(
                         'subcategory', ts.subCategory,
                         'duration', ts.duration,
-                        'correct', isCorrect,
+                        'correct', ts.isCorrect,
                         'point', ts.point
                     )
-                ) AS subCategory
+                ) AS subCategory,
+                (SELECT 
+                    JSON_OBJECT(
+                        'id', pp.id,
+                        'nama', pp.nama,
+                        'harga', pp.harga,
+                        'durasi', pp.durasi,
+                        'gambar', pp.gambar
+                    )
+                 FROM paketPembelian pp
+                 LEFT JOIN BankSoalCategory bc ON bc.paketRekomendasiId = pp.id
+                 WHERE bc.nama = ts.category
+                 LIMIT 1
+                ) AS paketRekomendasi
             FROM TryoutSoal ts
             LEFT JOIN Tryout t ON t.id = ts.tryoutId
             WHERE t.id = ${validate.id}
@@ -628,9 +647,6 @@ GROUP BY
     t.id, t.userId, t.paketLatihanId, u.name, t.kkm, t.maxPoint, t.finishAt, t.createdAt, t.updatedAt
 ORDER BY
     point DESC;
-
-
-
 `;
 
     res.status(200).json({

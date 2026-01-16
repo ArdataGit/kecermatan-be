@@ -18,25 +18,50 @@ const get = async (req, res, next) => {
     });
 
     const validate = await schema.validateAsync(req.query);
-    const result = await database.$transaction([
-      database.User.findMany({
-        skip: validate.skip,
-        take: validate.take,
-        where: filterToJson(validate),
-        orderBy: {
-          [validate.sortBy]: validate.descending ? "desc" : "asc",
-        },
-      }),
-      database.User.count({
-        where: filterToJson(validate),
-      }),
-    ]);
 
-    return returnPagination(req, res, result);
+    const users = await database.User.findMany({
+      skip: validate.skip,
+      take: validate.take,
+      where: filterToJson(validate),
+      orderBy: {
+        [validate.sortBy]: validate.descending ? "desc" : "asc",
+      },
+      include: {
+        // 1. USER YANG MEMAKAI REFERAL USER INI
+        affiliateToUsers: {
+          where: {
+            Pembelian: {
+              some: {}        // ambil hanya user yg punya pembelian
+            }
+          },
+          include: {
+            Pembelian: true
+          }
+        },
+
+        // 2. PEMBELIAN PAID YANG DIREFERALKAN KE USER INI
+        referredPurchases: {
+          where: { status: "PAID" },
+          include: {
+            paketPembelian: true,
+            user: true
+          },
+          orderBy: { createdAt: "desc" }
+        }
+      }
+    });
+
+    const total = await database.User.count({
+      where: filterToJson(validate),
+    });
+
+    return returnPagination(req, res, [users, total]);
+
   } catch (error) {
     next(error);
   }
 };
+
 
 const excel = async (req, res, next) => {
   try {
@@ -101,42 +126,88 @@ const find = async (req, res, next) => {
 };
 
 const insert = async (req, res, next) => {
-  try {
-    const schema = Joi.object({
-      name: Joi.string().required(),
-      email: Joi.string().email().required(),
-      password: Joi.string().required().min(8),
-      noWA: Joi.string().allow(""),
-      jenisKelamin: Joi.string().allow(""),
-      alamat: Joi.string().allow(""),
-      provinsi: Joi.string().allow(""),
-      kabupaten: Joi.string().allow(""),
-      kecamatan: Joi.string().allow(""),
-    });
+  const schema = Joi.object({
+    name: Joi.string().required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().required().min(8),
+    noWA: Joi.string().allow(""),
+    jenisKelamin: Joi.string().allow(""),
+    alamat: Joi.string().allow(""),
+    provinsi: Joi.string().allow(""),
+    kabupaten: Joi.string().allow(""),
+    kecamatan: Joi.string().allow(""),
+    affiliate_code: Joi.string().allow(null, ""), // Tambahkan validasi untuk kode affiliate
+  });
 
+  try {
     const validate = await schema.validateAsync(req.body);
 
+    // Cek apakah email sudah digunakan
     const isEmailExist = await database.User.findUnique({
-      where: {
-        email: validate.email,
-      },
+      where: { email: validate.email },
     });
-
     if (isEmailExist) throw new BadRequestError("Email telah digunakan");
 
+    // Cek apakah noWA sudah digunakan jika diisi
+    if (validate.noWA) {
+      const isNoWAExist = await database.User.findFirst({
+        where: { noWA: validate.noWA },
+      });
+      if (isNoWAExist) throw new BadRequestError("No Whatsapp telah digunakan");
+    }
+
+    // Cek kode affiliate (referrer)
+    let affiliateFromUserId = null;
+    if (validate.affiliate_code) {
+      const referrerUser = await database.User.findFirst({
+        where: { affiliateCode: validate.affiliate_code },
+      });
+      if (referrerUser) {
+        affiliateFromUserId = referrerUser.id;
+      }
+    }
+
+    // Generate affiliateCode unik untuk user baru
+    let affiliateCode;
+    let unique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!unique && attempts < maxAttempts) {
+      attempts++;
+      affiliateCode = `AFFU${moment().unix()}${Math.floor(Math.random() * 900 + 100)}`;
+      const exists = await database.User.findFirst({
+        where: { affiliateCode },
+      });
+      if (!exists) unique = true;
+      else await new Promise((r) => setTimeout(r, 50));
+    }
+
+    if (!unique) throw new BadRequestError("Gagal membuat kode afiliasi unik. Silakan coba lagi.");
+
+    // Buat user baru
     const result = await database.User.create({
       data: {
         ...validate,
         verifyAt: new Date(),
         password: bcrypt.hashSync(validate.password, 10),
+        affiliateFromUserId, // Tambahkan dari referrer
+        affiliateCode,
+        affiliateLink: `https://viracun.com/auth/register/${affiliateCode}`, // Sesuaikan domain dengan aplikasi Anda
+        affiliateStatus: "active",
+        affiliateCommission: 0,
+        affiliateBalance: 0.0,
       },
     });
 
+    // Kirim email konfirmasi (diubah ke konfirmasi email seperti contoh)
+    const token = generateToken(result); // Asumsi generateToken tersedia
     sendMail({
       to: validate.email,
-      subject: "Welcome to Viracun",
-      template: "register.html", // -todo: change the template welcome.html
+      subject: "Please Confirm Your Email",
+      template: "register.html", // TODO: Ubah ke template konfirmasi jika diperlukan
       name: validate.name,
+      url: `${process.env.URL_SERVER}/auth/confirm-email/${token}`, // Asumsi env var tersedia
     });
 
     res.status(201).json({
@@ -161,6 +232,10 @@ const update = async (req, res, next) => {
       kecamatan: Joi.string().allow(""),
       password: Joi.string().min(8).allow(""),
       email: Joi.string().email(),
+      verifyAt: Joi.date().allow(null, ""),
+
+      // optional, boleh kosong
+      affiliateFromUserId: Joi.alternatives().try(Joi.number(), Joi.valid(null)).allow(""),
     }).unknown();
 
     const validate = await schema.validateAsync({
@@ -168,46 +243,54 @@ const update = async (req, res, next) => {
       ...req.body,
     });
 
+    // Konversi empty value untuk verifyAt
+    if (validate.verifyAt === "") validate.verifyAt = null;
+
+    // Hapus affiliateFromUserId jika kosong/null
+    if (
+      validate.affiliateFromUserId === "" ||
+      validate.affiliateFromUserId === null ||
+      typeof validate.affiliateFromUserId === "undefined"
+    ) {
+      delete validate.affiliateFromUserId;
+    }
+
     const isExist = await database.User.findUnique({
-      where: {
-        id: validate.id,
-      },
+      where: { id: validate.id },
     });
 
+    if (!isExist) throw new BadRequestError("User tidak ditemukan");
+
+    // Cek email duplikat
     if (validate.email && validate.email !== isExist.email) {
       const isEmailExist = await database.User.findUnique({
-        where: {
-          email: validate.email,
-        },
+        where: { email: validate.email },
       });
-
       if (isEmailExist) throw new BadRequestError("Email telah digunakan");
     }
 
+    // Hash password jika dikirim
     if (validate.password) {
       validate.password = bcrypt.hashSync(validate.password, 10);
     } else {
       delete validate.password;
     }
-    if (!isExist) throw new BadRequestError("User tidak ditemukan");
 
     const result = await database.User.update({
-      where: {
-        id: validate.id,
-      },
-      data: {
-        ...validate,
-      },
+      where: { id: validate.id },
+      data: { ...validate },
     });
 
     res.status(200).json({
       data: result,
       msg: "Berhasil mengubah data user",
     });
+
   } catch (error) {
     next(error);
   }
 };
+
 
 const remove = async (req, res, next) => {
   try {

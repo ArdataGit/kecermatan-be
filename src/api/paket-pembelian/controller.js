@@ -33,6 +33,7 @@ const get = async (req, res, next) => {
           harga: true,
           keterangan: true,
           Pembelian: true,
+          linkWa:true,
           isActive: true,
           durasi: true,
           createdAt: true,
@@ -198,6 +199,7 @@ const insert = async (req, res, next) => {
       nama: Joi.string().required(),
       harga: Joi.number().required(),
       keterangan: Joi.allow(null, ""),
+      linkWa: Joi.allow(null, ""),
       durasi: Joi.number(),
       gambar: Joi.string(),
       category: Joi.string(),
@@ -245,6 +247,7 @@ const update = async (req, res, next) => {
       nama: Joi.string().required(),
       harga: Joi.number().required(),
       keterangan: Joi.allow(null, ""),
+      linkWa: Joi.allow(null, ""),
       durasi: Joi.number(),
       gambar: Joi.string(),
       category: Joi.string(),
@@ -342,6 +345,8 @@ const remove = async (req, res, next) => {
     next(error);
   }
 };
+
+
 
 module.exports = {
   get,
