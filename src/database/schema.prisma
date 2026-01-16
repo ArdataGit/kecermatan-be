@@ -599,3 +599,37 @@ enum enumTypeComission {
   percent
   nominal
 }
+model KategoriSoalKecermatan {
+  id             Int      @id @default(autoincrement())
+  judul_kategori String
+  keterangan     String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  Kiasan         Kiasan[]
+}
+
+model Kiasan {
+  id                       Int                    @id @default(autoincrement())
+  kategoriSoalKecermatanId Int
+  karakter                 Json
+  kiasan                   Json
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  kategoriSoalKecermatan   KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
+  SoalKecermatan           SoalKecermatan[]
+
+  @@index([kategoriSoalKecermatanId])
+}
+
+model SoalKecermatan {
+  id        Int      @id @default(autoincrement())
+  kiasanId  Int
+  soal      Json
+  jawaban   String
+  waktu     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  kiasan    Kiasan   @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
+
+  @@index([kiasanId])
+}

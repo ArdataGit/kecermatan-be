@@ -32,6 +32,9 @@ const ticketRouter = require('#api/ticket/route.js');
 const dashboardNotificationRouter = require('#api/dashboard-notification/route.js');
 const feedbackRouter = require('#api/feedback/route.js');
 const affiliateRouter = require('#api/affiliate/route.js');
+const kategoriSoalKecermatanRouter = require('#api/kategori-soal-kecermatan/route.js');
+const kiasanRouter = require('#api/kiasan/route.js');
+const soalKecermatanRouter = require('#api/soal-kecermatan/route.js');
 
 const database = require('#database');
 
@@ -72,6 +75,9 @@ router.use('/api/admin/ticket', ticketRouter);
 router.use('/api/admin', feedbackRouter); // Admin feedback routes
 router.use('/api/admin', feedbackRouter); // Admin feedback settings routes
 router.use('/api/admin', affiliateRouter);
+router.use('/api/admin/kategori-soal-kecermatan', kategoriSoalKecermatanRouter);
+router.use('/api/admin/kiasan', kiasanRouter);
+router.use('/api/admin/soal-kecermatan', soalKecermatanRouter);
 
 router.use('/api/admin', authenticateUser, authorizeRoles('ADMIN'));
 router.use('/api/admin/users', manageUserRouter);
