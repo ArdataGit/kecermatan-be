@@ -35,6 +35,13 @@ const get = async (req, res, next) => {
             },
           },
         },
+        include: {
+          _count: {
+            select: {
+              Kiasan: true,
+            },
+          },
+        },
       }),
       database.kategoriSoalKecermatan.count({
         where: filterToJson(validate),
@@ -77,7 +84,7 @@ const insert = async (req, res, next) => {
     const schema = Joi.object({
       judul_kategori: Joi.string().required(),
       keterangan: Joi.string().allow(null, ''),
-    });
+    }).unknown(true);
 
     const validate = await schema.validateAsync(req.body);
 
@@ -100,7 +107,7 @@ const update = async (req, res, next) => {
       id: Joi.number().required(),
       judul_kategori: Joi.string().required(),
       keterangan: Joi.string().allow(null, ''),
-    });
+    }).unknown(true);
 
     const validate = await schema.validateAsync({
       ...req.body,

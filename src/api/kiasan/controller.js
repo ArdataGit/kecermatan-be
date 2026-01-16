@@ -37,6 +37,11 @@ const get = async (req, res, next) => {
         where: where,
         include: {
           kategoriSoalKecermatan: true,
+          SoalKecermatan: {
+            select: {
+              waktu: true,
+            },
+          },
           _count: {
             select: {
               SoalKecermatan: true,
@@ -49,7 +54,15 @@ const get = async (req, res, next) => {
       }),
     ]);
 
-    return returnPagination(req, res, result);
+    const mappedResult = result[0].map((item) => {
+      const totalWaktu = item.SoalKecermatan.reduce((acc, curr) => acc + curr.waktu, 0);
+      return {
+        ...item,
+        total_waktu: totalWaktu,
+      };
+    });
+
+    return returnPagination(req, res, [mappedResult, result[1]]);
   } catch (error) {
     next(error);
   }
@@ -90,7 +103,7 @@ const insert = async (req, res, next) => {
       kategoriSoalKecermatanId: Joi.number().required(),
       karakter: Joi.array().required(), // Validate as array
       kiasan: Joi.array().required(),   // Validate as array
-    });
+    }).unknown(true);
 
     const validate = await schema.validateAsync(req.body);
 
@@ -120,7 +133,7 @@ const update = async (req, res, next) => {
       kategoriSoalKecermatanId: Joi.number().allow(null),
       karakter: Joi.array().allow(null),
       kiasan: Joi.array().allow(null),
-    });
+    }).unknown(true);
 
     const validate = await schema.validateAsync({
       ...req.body,
