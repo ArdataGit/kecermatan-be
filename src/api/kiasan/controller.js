@@ -13,6 +13,7 @@ const get = async (req, res, next) => {
       descending: Joi.boolean(),
       filters: Joi.object(),
       kategoriSoalKecermatanId: Joi.number().allow(null),
+      includeSoal: Joi.boolean(),
     }).unknown(true);
 
     const validate = await schema.validateAsync(req.query);
@@ -37,7 +38,7 @@ const get = async (req, res, next) => {
         where: where,
         include: {
           kategoriSoalKecermatan: true,
-          SoalKecermatan: {
+          SoalKecermatan: validate.includeSoal ? true : {
             select: {
               waktu: true,
             },

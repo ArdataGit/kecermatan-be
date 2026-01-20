@@ -35,6 +35,7 @@ const affiliateRouter = require('#api/affiliate/route.js');
 const kategoriSoalKecermatanRouter = require('#api/kategori-soal-kecermatan/route.js');
 const kiasanRouter = require('#api/kiasan/route.js');
 const soalKecermatanRouter = require('#api/soal-kecermatan/route.js');
+const paketPembelianKecermatanRouter = require('#api/paket-pembelian-kecermatan/route.js'); 
 
 const database = require('#database');
 
@@ -64,6 +65,7 @@ router.use('/api/user/event', eventUserRouter);
 router.use('/api/user/notification', notificationUserRouter);
 router.use('/api/user', feedbackRouter); // User feedback routes
 router.use('/api/user', affiliateRouter);
+router.use('/api/user/paket-pembelian-kecermatan', authenticateUser, paketPembelianKecermatanRouter);
 
 //router.use('/api/user/tickets', authenticateUser, ticketRouter); // User ticket routes
 
@@ -92,6 +94,7 @@ router.use('/api/admin/paket-pembelian', paketPembelianRouter);
 router.use('/api/admin/paket-pembelian-materi', paketPembelianMateriRouter);
 router.use('/api/admin/paket-pembelian-bimbel', paketPembelianBimbelRouter);
 router.use('/api/admin/paket-pembelian-fitur', paketPembelianFiturRouter);
+router.use('/api/admin/paket-pembelian-kecermatan', paketPembelianKecermatanRouter);
 router.use('/api/admin/event', eventRouter);
 router.use('/api/admin/home-section', sectionHomeRouter);
 router.use('/api/admin/notification', notificationRouter);

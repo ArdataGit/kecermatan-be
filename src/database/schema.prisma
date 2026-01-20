@@ -2,67 +2,70 @@ generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
 }
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model AffiliateWithdrawal {
-  id          Int                     @id @default(autoincrement())
-  userId      Int
-  amount      Decimal                  @db.Decimal(10, 2)
-  status      AffiliateWithdrawalStatus @default(pending)
-  notes       String?                  @db.Text
-  payload_destination       String?                  @db.Text
-  processedAt DateTime?
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
+  id                  Int                       @id @default(autoincrement())
+  userId              Int
+  amount              Decimal                   @db.Decimal(10, 2)
+  status              AffiliateWithdrawalStatus @default(pending)
+  notes               String?                   @db.Text
+  payload_destination String?                   @db.Text
+  processedAt         DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
-  user        User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("affiliate_withdrawals")
 }
 
 model User {
-  id                    Int                @id @default(autoincrement())
-  email                 String             @unique
-  name                  String?
-  noWA                  String?
-  jenisKelamin          enumGender         @default(L)
-  alamat                String?            @db.Text
-  provinsi              String?
-  kabupaten             String?
-  kecamatan             String?
-  password              String
-  gambar                String?            @default("public/DEFAULT_USER.png")
-  role                  EnumRole           @default(USER)
-  verifyAt              DateTime?
-  jwtVersion            Int                @default(0)
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  name         String?
+  noWA         String?
+  jenisKelamin enumGender @default(L)
+  alamat       String?    @db.Text
+  provinsi     String?
+  kabupaten    String?
+  kecamatan    String?
+  password     String
+  gambar       String?    @default("public/DEFAULT_USER.png")
+  role         EnumRole   @default(USER)
+  verifyAt     DateTime?
+  jwtVersion   Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   // Affiliate fields
-  affiliateLink         String?            @db.VarChar(500)
-  affiliateCode         String?            @db.VarChar(100)
-  affiliateFromUserId   Int?
-  affiliateCommission   Int                @default(0)
-  affiliateBalance      Decimal            @default(0.00) @db.Decimal(10, 2)
-  affiliateStatus       AffiliateStatus    @default(active)
-  commissionType String? @default("percent")
+  affiliateLink       String?         @db.VarChar(500)
+  affiliateCode       String?         @db.VarChar(100)
+  affiliateFromUserId Int?
+  affiliateCommission Int             @default(0)
+  affiliateBalance    Decimal         @default(0.00) @db.Decimal(10, 2)
+  affiliateStatus     AffiliateStatus @default(active)
+  commissionType      String?         @default("percent")
 
   // Relations
-  affiliateFromUser     User?              @relation("AffiliateFrom", fields: [affiliateFromUserId], references: [id])
-  affiliateToUsers      User[]             @relation("AffiliateFrom")
-  affiliateWithdrawals  AffiliateWithdrawal[]
-  
-  // Relasi baru untuk affiliate referrals
-  referredPurchases     Pembelian[]        @relation("ReferredPurchases")
+  affiliateFromUser    User?                 @relation("AffiliateFrom", fields: [affiliateFromUserId], references: [id])
+  affiliateToUsers     User[]                @relation("AffiliateFrom")
+  affiliateWithdrawals AffiliateWithdrawal[]
 
-  NotificationUser      NotificationUser[]
-  Pembelian             Pembelian[]
-  Tryout                Tryout[]
-  Ticket                tickets[]      
-  feedback              Feedback? 
+  // Relasi baru untuk affiliate referrals
+  referredPurchases Pembelian[] @relation("ReferredPurchases")
+
+  NotificationUser NotificationUser[]
+  Pembelian        Pembelian[]
+  Tryout           Tryout[]
+  Ticket           tickets[]
+  feedback         Feedback?
+
+  KecermatanRanking KecermatanRanking[]
 }
 
 model FeedbackSetting {
@@ -74,42 +77,40 @@ model FeedbackSetting {
 
 model Feedback {
   id        Int      @id @default(autoincrement())
-  userId    Int      @unique            // user hanya bisa isi sekali
+  userId    Int      @unique // user hanya bisa isi sekali
   pekerjaan String?  @db.Text
-  rating    Int      // 1-5
+  rating    Int // 1-5
   saran     String?  @db.Text
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt       @map("updated_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-
-
 model DashboardNotification {
-  id          Int                  @id @default(autoincrement())
-  title       String?              @db.VarChar(100)
-  description String               @db.Text
-  link        String?              @db.VarChar(255)
-  type        enumNotificationType @default(info)
-  priority    Int                  @default(0)
+  id          Int                    @id @default(autoincrement())
+  title       String?                @db.VarChar(100)
+  description String                 @db.Text
+  link        String?                @db.VarChar(255)
+  type        enumNotificationType   @default(info)
+  priority    Int                    @default(0)
   status      enumNotificationStatus @default(active)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 }
 
 model tickets {
-  id             Int       @id @default(autoincrement())
-  userId         Int
-  title          String
-  description    String    @db.Text
-  category       String?
-  status         String    @default("open") // Possible values: open, in_progress, resolved, closed
-  image          String?
-  adminResponse  String?   @db.Text
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  title         String
+  description   String   @db.Text
+  category      String?
+  status        String   @default("open") // Possible values: open, in_progress, resolved, closed
+  image         String?
+  adminResponse String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId], map: "Ticket_userId_fkey")
 }
@@ -124,18 +125,18 @@ model BankSoalParentCategory {
 }
 
 model BankSoalCategory {
-  id               Int                    @id @default(autoincrement())
-  parentCategoryId Int
-  parentCategory   BankSoalParentCategory @relation(fields: [parentCategoryId], references: [id], onDelete: Cascade)
-  nama             String
-  kkm              Int                    @default(0)
-  tipePenilaian    tipePenilaian          @default(BENAR_SALAH)
-  keterangan       String?                @db.Text
-  paketRekomendasiId Int?  
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  BankSoal         BankSoal[]
-  PaketLatihanSoal PaketLatihanSoal[]
+  id                 Int                    @id @default(autoincrement())
+  parentCategoryId   Int
+  parentCategory     BankSoalParentCategory @relation(fields: [parentCategoryId], references: [id], onDelete: Cascade)
+  nama               String
+  kkm                Int                    @default(0)
+  tipePenilaian      tipePenilaian          @default(BENAR_SALAH)
+  keterangan         String?                @db.Text
+  paketRekomendasiId Int?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  BankSoal           BankSoal[]
+  PaketLatihanSoal   PaketLatihanSoal[]
 }
 
 model BankSoalSubCategory {
@@ -265,27 +266,44 @@ model paketPembelianTryout {
   @@index([paketPembelianId], map: "paketPembelianTryout_paketPembelianId_fkey")
 }
 
+model paketPembelianKecermatan {
+  id               Int            @id @default(autoincrement())
+  paketPembelianId Int
+  kategoriSoalKecermatanId   Int?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  type             enumTypePaketLatihanKecermatan @default(KECERMATAN)
+  paketPembelian   paketPembelian @relation(fields: [paketPembelianId], references: [id], onDelete: Cascade)
+  kategoriSoalKecermatan     KategoriSoalKecermatan?  @relation(fields: [kategoriSoalKecermatanId], references: [id])
+
+
+  @@index([paketPembelianId])
+  @@index([kategoriSoalKecermatanId])
+ 
+}
+
 model paketPembelian {
-  id                     Int                      @id @default(autoincrement())
-  nama                   String
-  harga                  Int
-  keterangan             String?                  @db.Text
-  durasi                 Int                      @default(0)
-  gambar                 String?
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
-  panduan                String?                  @db.Text
-  paketLatihanId         Int?
-  linkWa           		 String?
-  isActive               Boolean                  @default(true)
-  Pembelian              Pembelian[]
-  PaketLatihan           PaketLatihan?            @relation(fields: [paketLatihanId], references: [id])
-  paketPembelianBimbel   paketPembelianBimbel[]
-  paketPembelianCategory paketPembelianCategory[]
-  paketPembelianFitur    paketPembelianFitur[]
-  paketPembelianMateri   paketPembelianMateri[]
-  paketPembelianTryout   paketPembelianTryout[]
-  VoucherProduct         VoucherProduct[]
+  id                       Int                        @id @default(autoincrement())
+  nama                     String
+  harga                    Int
+  keterangan               String?                    @db.Text
+  durasi                   Int                        @default(0)
+  gambar                   String?
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  panduan                  String?                    @db.Text
+  paketLatihanId           Int?
+  linkWa                   String?
+  isActive                 Boolean                    @default(true)
+  Pembelian                Pembelian[]
+  PaketLatihan             PaketLatihan?              @relation(fields: [paketLatihanId], references: [id])
+  paketPembelianBimbel     paketPembelianBimbel[]
+  paketPembelianCategory   paketPembelianCategory[]
+  paketPembelianFitur      paketPembelianFitur[]
+  paketPembelianMateri     paketPembelianMateri[]
+  paketPembelianTryout     paketPembelianTryout[]
+  paketPembelianKecermatan paketPembelianKecermatan[]
+  VoucherProduct           VoucherProduct[]
 
   @@index([paketLatihanId], map: "paketPembelian_paketLatihanId_fkey")
 }
@@ -324,40 +342,39 @@ model PaketLatihanSoal {
 }
 
 model Pembelian {
-  id                   Int                 @id @default(autoincrement())
-  userId               Int?
-  paketPembelianId     Int?
-  namaPaket            String?
-  duration             Int                 @default(0)
-  paymentUrl           String?
-  status               enumPembelianStatus
-  voucherCode          String?
-  voucherValue         Int                 @default(0)
-  voucherAlumniValue   Int                 @default(0)
-  amount               Int                 @default(0)
-  invoice              String?             @unique
-  paymentMethod        String
-  paidAt               DateTime?
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
-  expiredAt            DateTime?
-  
+  id                 Int                 @id @default(autoincrement())
+  userId             Int?
+  paketPembelianId   Int?
+  namaPaket          String?
+  duration           Int                 @default(0)
+  paymentUrl         String?
+  status             enumPembelianStatus
+  voucherCode        String?
+  voucherValue       Int                 @default(0)
+  voucherAlumniValue Int                 @default(0)
+  amount             Int                 @default(0)
+  invoice            String?             @unique
+  paymentMethod      String
+  paidAt             DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  expiredAt          DateTime?
+
   // Field baru untuk affiliate
-  affiliateUserId      Int?                // Nullable, references ke User.id (bigint unsigned di DB)
-  affiliate_commission_amount Decimal @db.Decimal(10, 2) @default(0.00)
-  affiliate_commission_type enumTypeComission @default(percent)
-  
+  affiliateUserId             Int? // Nullable, references ke User.id (bigint unsigned di DB)
+  affiliate_commission_amount Decimal           @default(0.00) @db.Decimal(10, 2)
+  affiliate_commission_type   enumTypeComission @default(percent)
+
   // Relasi existing
-  paketPembelian       paketPembelian?     @relation(fields: [paketPembelianId], references: [id])
-  user                 User?               @relation(fields: [userId], references: [id])
-  
+  paketPembelian paketPembelian? @relation(fields: [paketPembelianId], references: [id])
+  user           User?           @relation(fields: [userId], references: [id])
+
   // Relasi baru ke affiliate user (yang mereferensikan transaksi ini)
-  affiliateUser        User?               @relation("ReferredPurchases", fields: [affiliateUserId], references: [id])
+  affiliateUser User? @relation("ReferredPurchases", fields: [affiliateUserId], references: [id])
 
   // Index existing
   @@index([paketPembelianId], map: "Pembelian_paketPembelianId_fkey")
   @@index([userId], map: "Pembelian_userId_fkey")
-  
   // Index baru untuk affiliate
   @@index([affiliateUserId], map: "Pembelian_affiliateUserId_fkey")
 }
@@ -433,7 +450,7 @@ model TryoutSoal {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   duration      Int           @default(0)
-  subCategory   String?           @db.VarChar(255)
+  subCategory   String?       @db.VarChar(255)
   tipePenilaian tipePenilaian @default(BENAR_SALAH)
   tryout        Tryout        @relation(fields: [tryoutId], references: [id], onDelete: Cascade)
 
@@ -524,6 +541,13 @@ enum enumTypePaketLatihanTryout {
   PEMANTAPAN
 }
 
+enum enumTypePaketLatihanKecermatan {
+  KECERMATAN
+  TRYOUT
+  PENDAHULUAN
+  PEMANTAPAN
+}
+
 enum enumTypePaketLatihan {
   BIASA
   TRYOUT
@@ -570,7 +594,6 @@ enum NotificationStatus {
   BIMBEL_CHANGES
 }
 
-
 enum enumNotificationType {
   info
   success
@@ -599,13 +622,16 @@ enum enumTypeComission {
   percent
   nominal
 }
+
 model KategoriSoalKecermatan {
-  id             Int      @id @default(autoincrement())
-  judul_kategori String
-  keterangan     String?  @db.Text
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  Kiasan         Kiasan[]
+  id                       Int                        @id @default(autoincrement())
+  judul_kategori           String
+  keterangan               String?                    @db.Text
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  Kiasan                   Kiasan[]
+  paketPembelianKecermatan paketPembelianKecermatan[]
+  KecermatanRanking        KecermatanRanking[]
 }
 
 model Kiasan {
@@ -632,4 +658,19 @@ model SoalKecermatan {
   kiasan    Kiasan   @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
 
   @@index([kiasanId])
+}
+
+model KecermatanRanking{
+  id Int @id @default(autoincrement())
+  userId Int
+  kategoriSoalKecermatanId Int
+  score Int
+  totalSoal Int
+  totalBenar Int
+  totalSalah Int
+  waktu Int 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kategoriSoalKecermatan KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
 }

@@ -16,10 +16,17 @@ const get = async (req, res, next) => {
 
     const validate = await schema.validateAsync(req.query);
     const take = validate.take ? { take: validate.take } : {};
-    const orderBy =
-      validate.sortBy == "pembeli"
-        ? { createdAt: "desc" }
-        : { [validate.sortBy]: validate.descending ? "desc" : "asc" };
+    let orderBy = undefined;
+
+    if (validate.sortBy) {
+      if (validate.sortBy === "pembeli") {
+        orderBy = { createdAt: "desc" }; // dummy, sorting real-nya manual
+      } else {
+        orderBy = {
+          [validate.sortBy]: validate.descending ? "desc" : "asc",
+        };
+      }
+    }
 
     const result = await database.$transaction([
       database.paketPembelian.findMany({
@@ -55,6 +62,7 @@ const get = async (req, res, next) => {
               paketPembelianBimbel: true,
               paketPembelianFitur: true,
               paketPembelianTryout: true,
+              paketPembelianKecermatan: true,
               Pembelian: true,
             },
           },
