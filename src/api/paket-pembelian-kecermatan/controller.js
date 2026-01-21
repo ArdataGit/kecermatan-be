@@ -214,7 +214,53 @@ const remove = async (req, res, next) => {
 
 // Placeholder for functions that were specific to Tryout logic and might need custom implementation for Kecermatan later
 const getHistory = async (req, res, next) => {
-    res.status(501).json({ msg: "Not implemented for Kecermatan yet" });
+    try {
+        const schema = Joi.object({
+            skip: Joi.number(),
+            take: Joi.number(),
+            sortBy: Joi.string(),
+            descending: Joi.boolean(),
+            kategoriSoalKecermatanId: Joi.number().required(),
+        }).unknown(true);
+
+        const validate = await schema.validateAsync(req.query);
+        const take = validate.take ? { take: validate.take } : {};
+        const skip = validate.skip ? { skip: validate.skip } : {};
+
+        const result = await database.$transaction([
+            database.kecermatanHistory.findMany({
+                ...take,
+                ...skip,
+                where: {
+                    userId: req.user.id,
+                    kategoriSoalKecermatanId: validate.kategoriSoalKecermatanId,
+                },
+                include: {
+                    user: {
+                        select: {
+                            name: true,
+                            gambar: true,
+                        },
+                    },
+                    kiasan: true,
+                    soalKecermatan: true,
+                },
+                orderBy: {
+                    [validate.sortBy || 'createdAt']: validate.descending ? 'desc' : 'asc',
+                },
+            }),
+            database.kecermatanHistory.count({
+                where: {
+                    userId: req.user.id,
+                    kategoriSoalKecermatanId: validate.kategoriSoalKecermatanId,
+                },
+            }),
+        ]);
+
+        return returnPagination(req, res, result);
+    } catch (error) {
+        next(error);
+    }
 };
 
 const excel = async (req, res, next) => {
@@ -223,6 +269,55 @@ const excel = async (req, res, next) => {
 
 const excelTryout = async (req, res, next) => {
     res.status(501).json({ msg: "Not implemented for Kecermatan yet" });
+};
+
+const getRanking = async (req, res, next) => {
+    try {
+        const schema = Joi.object({
+            skip: Joi.number(),
+            take: Joi.number(),
+            sortBy: Joi.string(),
+            descending: Joi.boolean(),
+            kategoriSoalKecermatanId: Joi.number().required(),
+        }).unknown(true);
+
+        const validate = await schema.validateAsync(req.query);
+        const take = validate.take ? { take: validate.take } : {};
+        const skip = validate.skip ? { skip: validate.skip } : {};
+
+        const result = await database.$transaction([
+            database.kecermatanRanking.findMany({
+                ...take,
+                ...skip,
+                where: {
+                    kategoriSoalKecermatanId: validate.kategoriSoalKecermatanId,
+                },
+                distinct: ['userId'],
+                include: {
+                    user: {
+                        select: {
+                            name: true,
+                            gambar: true,
+                        },
+                    },
+                },
+                orderBy: [
+                    { score: 'desc' },
+                    { createdAt: 'asc' }
+                ],
+            }),
+            database.kecermatanRanking.groupBy({
+                by: ['userId'],
+                where: {
+                    kategoriSoalKecermatanId: validate.kategoriSoalKecermatanId,
+                },
+            }),
+        ]);
+
+        return returnPagination(req, res, [result[0], result[1].length]);
+    } catch (error) {
+        next(error);
+    }
 };
 
 const insertRanking = async (req, res, next) => {
@@ -261,6 +356,39 @@ const insertRanking = async (req, res, next) => {
     }
 };
 
+const insertHistory = async (req, res, next) => {
+    try {
+
+        const schema = Joi.object({
+            kategoriSoalKecermatanId: Joi.number().required(),
+            userId: Joi.number().required(),
+            soalKecermatanId: Joi.number().required(),
+            kiasanId: Joi.number().required(),
+            jawaban: Joi.string().required(),
+        })  
+
+        const validate = await schema.validateAsync(req.body);
+
+        const result = await database.kecermatanHistory.create({
+            data: {
+                kategoriSoalKecermatanId: validate.kategoriSoalKecermatanId,
+                userId: validate.userId,
+                soalKecermatanId: validate.soalKecermatanId,
+                kiasanId: validate.kiasanId,
+                jawaban: validate.jawaban,
+            },
+        });
+
+        res.status(200).json({
+            data: result,
+            msg: 'Berhasil menambahkan History Kecermatan',
+        });
+    } catch (error) {
+      console.log(error);
+        next(error);
+    }
+};
+
 module.exports = {
   get,
   insert,
@@ -271,4 +399,6 @@ module.exports = {
   excel,
   excelTryout,
   insertRanking,
+  getRanking,
+  insertHistory,
 };

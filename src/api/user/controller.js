@@ -220,12 +220,64 @@ const findMyClass = async (req, res, next) => {
                 },
               },
             },
+            paketPembelianKecermatan: {
+              include: {
+                kategoriSoalKecermatan: true,
+              },
+            },
           },
         },
       },
     });
 
     if (!result) throw new BadRequestError("Data tidak ditemukan");
+
+    if (
+      result.paketPembelian &&
+      result.paketPembelian.paketPembelianKecermatan
+    ) {
+      result.paketPembelian.paketPembelianKecermatan = await Promise.all(
+        result.paketPembelian.paketPembelianKecermatan.map(async (item) => {
+          // Hitung total waktu dari semua kiasan -> soal
+          const kategori = await database.kategoriSoalKecermatan.findUnique({
+            where: { id: item.kategoriSoalKecermatanId },
+            include: {
+              Kiasan: {
+                include: {
+                  SoalKecermatan: {
+                    select: {
+                      waktu: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          let totalWaktu = 0;
+          let totalSoal = 0;
+
+          if (kategori && kategori.Kiasan) {
+            kategori.Kiasan.forEach((kiasan) => {
+              if (kiasan.SoalKecermatan) {
+                totalSoal += kiasan.SoalKecermatan.length;
+                kiasan.SoalKecermatan.forEach((soal) => {
+                  totalWaktu += soal.waktu;
+                });
+              }
+            });
+          }
+          
+          if(item.kategoriSoalKecermatan){
+             item.kategoriSoalKecermatan.waktu = totalWaktu;
+             item.kategoriSoalKecermatan.jumlah_soal = totalSoal;
+          }
+
+          return item;
+        })
+      );
+    }
+
     return res.status(200).json({
       data: result,
       msg: "Get data success",
@@ -275,6 +327,7 @@ const getMyClass = async (req, res, next) => {
                   paketPembelianMateri: true,
                   paketPembelianTryout: true,
                   paketPembelianBimbel: true,
+                  paketPembelianKecermatan: true,
                 },
               },
             },

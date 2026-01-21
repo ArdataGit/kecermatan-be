@@ -544,6 +544,7 @@ const statistic = async (req, res, next) => {
       id: Joi.number().required(),
     });
     const validate = await schema.validateAsync(req.query);
+    await database.$executeRaw`SET SESSION group_concat_max_len = 1000000;`;
     const result = await database.$queryRaw`
 SELECT
     t.id,
@@ -681,6 +682,7 @@ const addDuration = async (req, res, next) => {
       msg: "Berhasil Mengubah data",
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
