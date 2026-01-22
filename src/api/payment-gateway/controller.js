@@ -1,5 +1,6 @@
 const { default: axios } = require('axios');
 const crypto = require('crypto');
+const https = require('https');
 const Joi = require('joi');
 const moment = require('moment');
 const database = require('#database');
@@ -45,6 +46,7 @@ const get = async (req, res, next) => {
 
     return returnPagination(req, res, result);
   } catch (error) {
+    console.log(error)
     next(error);
   }
 };
@@ -56,6 +58,7 @@ const getFeeMerchant = async (req, res, next) => {
     const result = await axios.get(
       `${process.env.TRIPAY_LINK}/merchant/fee-calculator?amount=${amount}&code=${code}`,
       {
+        httpsAgent: new https.Agent({ family: 4 }),
         headers: {
           Authorization: `Bearer ${process.env.TRIPAY_API_KEY}`,
         },
@@ -74,6 +77,7 @@ const getMerchantList = async (req, res, next) => {
     const result = await axios.get(
       `${process.env.TRIPAY_LINK}/merchant/payment-channel`,
       {
+        httpsAgent: new https.Agent({ family: 4 }),
         headers: {
           Authorization: `Bearer ${process.env.TRIPAY_API_KEY}`,
         },
@@ -250,6 +254,7 @@ const createPayment = async (req, res, next) => {
           ],
         },
         {
+          httpsAgent: new https.Agent({ family: 4 }),
           headers: {
             Authorization: `Bearer ${process.env.TRIPAY_API_KEY}`,
           },
