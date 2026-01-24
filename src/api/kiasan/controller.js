@@ -38,11 +38,7 @@ const get = async (req, res, next) => {
         where: where,
         include: {
           kategoriSoalKecermatan: true,
-          SoalKecermatan: validate.includeSoal ? true : {
-            select: {
-              waktu: true,
-            },
-          },
+          SoalKecermatan: validate.includeSoal ? true : false,
           _count: {
             select: {
               SoalKecermatan: true,
@@ -56,10 +52,9 @@ const get = async (req, res, next) => {
     ]);
 
     const mappedResult = result[0].map((item) => {
-      const totalWaktu = item.SoalKecermatan.reduce((acc, curr) => acc + curr.waktu, 0);
       return {
         ...item,
-        total_waktu: totalWaktu,
+        total_waktu: item.waktu,
       };
     });
 
@@ -104,6 +99,7 @@ const insert = async (req, res, next) => {
       kategoriSoalKecermatanId: Joi.number().required(),
       karakter: Joi.array().required(), // Validate as array
       kiasan: Joi.array().required(),   // Validate as array
+      waktu: Joi.number().required(),
     }).unknown(true);
 
     const validate = await schema.validateAsync(req.body);
@@ -134,6 +130,7 @@ const update = async (req, res, next) => {
       kategoriSoalKecermatanId: Joi.number().allow(null),
       karakter: Joi.array().allow(null),
       kiasan: Joi.array().allow(null),
+      waktu: Joi.number().allow(null),
     }).unknown(true);
 
     const validate = await schema.validateAsync({
@@ -164,6 +161,7 @@ const update = async (req, res, next) => {
         kategoriSoalKecermatanId: validate.kategoriSoalKecermatanId,
         karakter: validate.karakter,
         kiasan: validate.kiasan,
+        waktu: validate.waktu,
       },
     });
 

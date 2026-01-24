@@ -84,7 +84,6 @@ const insert = async (req, res, next) => {
       kiasanId: Joi.number().required(),
       soal: Joi.array().required(), // Validate as array (JSON)
       jawaban: Joi.string().required(),
-      waktu: Joi.number().default(0),
     });
 
     const validate = await schema.validateAsync(req.body);
@@ -114,7 +113,6 @@ const update = async (req, res, next) => {
       kiasanId: Joi.number().allow(null),
       soal: Joi.array().allow(null),
       jawaban: Joi.string().allow(null, ''),
-      waktu: Joi.number().allow(null),
     });
 
     const validate = await schema.validateAsync({
@@ -145,7 +143,6 @@ const update = async (req, res, next) => {
         kiasanId: validate.kiasanId,
         soal: validate.soal,
         jawaban: validate.jawaban,
-        waktu: validate.waktu,
       },
     });
 

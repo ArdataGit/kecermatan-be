@@ -27,15 +27,7 @@ const get = async (req, res, next) => {
         include: {
           kategoriSoalKecermatan: {
             include: {
-              Kiasan: {
-                select: {
-                    SoalKecermatan: {
-                        select: {
-                            waktu: true
-                        }
-                    }
-                }
-              }
+              Kiasan: true,
             }
           },
         },
@@ -59,8 +51,7 @@ const get = async (req, res, next) => {
         let totalWaktu = 0;
         if (item.kategoriSoalKecermatan && item.kategoriSoalKecermatan.Kiasan) {
              totalWaktu = item.kategoriSoalKecermatan.Kiasan.reduce((acc, kiasan) => {
-                 const kiasanTime = kiasan.SoalKecermatan.reduce((accSoal, soal) => accSoal + soal.waktu, 0);
-                 return acc + kiasanTime;
+                 return acc + (kiasan.waktu || 0);
              }, 0);
         }
         if (item.kategoriSoalKecermatan) {

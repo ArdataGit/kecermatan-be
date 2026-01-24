@@ -641,6 +641,7 @@ model Kiasan {
   kategoriSoalKecermatanId Int
   karakter                 Json
   kiasan                   Json
+  waktu                    Int                    @default(0)
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
   kategoriSoalKecermatan   KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
@@ -655,7 +656,6 @@ model SoalKecermatan {
   kiasanId  Int
   soal      Json
   jawaban   String
-  waktu     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   kiasan    Kiasan   @relation(fields: [kiasanId], references: [id], onDelete: Cascade)

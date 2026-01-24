@@ -246,7 +246,7 @@ const findMyClass = async (req, res, next) => {
                 include: {
                   SoalKecermatan: {
                     select: {
-                      waktu: true,
+                      id: true,
                     },
                   },
                 },
@@ -259,11 +259,9 @@ const findMyClass = async (req, res, next) => {
 
           if (kategori && kategori.Kiasan) {
             kategori.Kiasan.forEach((kiasan) => {
+              totalWaktu += kiasan.waktu || 0;
               if (kiasan.SoalKecermatan) {
                 totalSoal += kiasan.SoalKecermatan.length;
-                kiasan.SoalKecermatan.forEach((soal) => {
-                  totalWaktu += soal.waktu;
-                });
               }
             });
           }
