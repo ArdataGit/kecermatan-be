@@ -63,6 +63,7 @@ const get = async (req, res, next) => {
               paketPembelianFitur: true,
               paketPembelianTryout: true,
               paketPembelianKecermatan: true,
+              paketPembelianBacaan: true,
               Pembelian: true,
             },
           },

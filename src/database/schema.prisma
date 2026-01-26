@@ -67,6 +67,7 @@ model User {
 
   KecermatanRanking KecermatanRanking[]
   KecermatanHistory KecermatanHistory[]
+  historyBacaan     historyBacaan[]
 }
 
 model FeedbackSetting {
@@ -283,6 +284,22 @@ model paketPembelianKecermatan {
  
 }
 
+model paketPembelianBacaan{
+  id               Int            @id @default(autoincrement())
+  paketPembelianId Int
+  kategoriSoalBacaanId   Int?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  type             enumTypePaketLatihanBacaan @default(BACAAN)
+  paketPembelian   paketPembelian @relation(fields: [paketPembelianId], references: [id], onDelete: Cascade)
+  kategoriSoalBacaan     kategoriSoalBacaan?  @relation(fields: [kategoriSoalBacaanId], references: [id])
+
+
+  @@index([paketPembelianId])
+  @@index([kategoriSoalBacaanId])
+ 
+}
+
 model paketPembelian {
   id                       Int                        @id @default(autoincrement())
   nama                     String
@@ -304,6 +321,7 @@ model paketPembelian {
   paketPembelianMateri     paketPembelianMateri[]
   paketPembelianTryout     paketPembelianTryout[]
   paketPembelianKecermatan paketPembelianKecermatan[]
+  paketPembelianBacaan     paketPembelianBacaan[]
   VoucherProduct           VoucherProduct[]
 
   @@index([paketLatihanId], map: "paketPembelian_paketLatihanId_fkey")
@@ -549,6 +567,14 @@ enum enumTypePaketLatihanKecermatan {
   PEMANTAPAN
 }
 
+enum enumTypePaketLatihanBacaan {
+  BACAAN
+  KECERMATAN
+  TRYOUT
+  PENDAHULUAN
+  PEMANTAPAN
+}
+
 enum enumTypePaketLatihan {
   BIASA
   TRYOUT
@@ -693,3 +719,52 @@ model KecermatanHistory{
   kategoriSoalKecermatan KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
   kiasan Kiasan? @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
 } 
+
+
+model kategoriSoalBacaan{
+  id Int @id @default(autoincrement())
+  judul_kategori String
+  keterangan String? @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bacaan Bacaan[]
+  paketPembelianBacaan paketPembelianBacaan[]
+}
+
+
+model Bacaan{
+  id Int @id @default(autoincrement())  
+  kategoriSoalBacaanId Int
+  bacaan String @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  kategoriSoalBacaan kategoriSoalBacaan @relation(fields: [kategoriSoalBacaanId], references: [id], onDelete: Cascade)
+  soalBacaan soalBacaan[]
+  historyBacaan historyBacaan[]
+}
+
+model soalBacaan{
+  id Int @id @default(autoincrement())
+  bacaanId Int
+  soal String @db.Text
+  jawaban String? // "Ya" or "Tidak"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bacaan Bacaan @relation(fields: [bacaanId], references: [id], onDelete: Cascade)
+  historyBacaan historyBacaan[]
+}
+
+model historyBacaan{
+  id Int @id @default(autoincrement())
+  userId Int
+  bacaanId Int
+  soalBacaanId Int
+  jawaban String
+  isCorrect Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bacaan Bacaan @relation(fields: [bacaanId], references: [id], onDelete: Cascade)
+  soalBacaan soalBacaan @relation(fields: [soalBacaanId], references: [id], onDelete: Cascade)
+} 
+

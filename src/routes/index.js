@@ -36,6 +36,15 @@ const kategoriSoalKecermatanRouter = require('#api/kategori-soal-kecermatan/rout
 const kiasanRouter = require('#api/kiasan/route.js');
 const soalKecermatanRouter = require('#api/soal-kecermatan/route.js');
 const paketPembelianKecermatanRouter = require('#api/paket-pembelian-kecermatan/route.js'); 
+const paketPembelianBacaanRouter = require('#api/paket-pembelian-bacaan/route.js');
+const bacaanRouter = require('#api/bacaan/route.js');
+const kategoriSoalBacaanRouter = require('#api/kategori-soal-bacaan/route.js');
+const soalBacaanRouter = require('#api/soal-bacaan/route.js');
+
+// User Routers for Bacaan
+const kategoriSoalBacaanUserRouter = require('#api/kategori-soal-bacaan/route.user.js');
+const bacaanUserRouter = require('#api/bacaan/route.user.js');
+const historyBacaanUserRouter = require('#api/history-bacaan/route.user.js');
 
 const database = require('#database');
 
@@ -66,6 +75,9 @@ router.use('/api/user/notification', notificationUserRouter);
 router.use('/api/user', feedbackRouter); // User feedback routes
 router.use('/api/user', affiliateRouter);
 router.use('/api/user/paket-pembelian-kecermatan', authenticateUser, paketPembelianKecermatanRouter);
+router.use('/api/user/kategori-soal-bacaan', authenticateUser, kategoriSoalBacaanUserRouter); // Maps to route.user.js
+router.use('/api/user/bacaan', authenticateUser, bacaanUserRouter); // Maps to route.user.js
+router.use('/api/user/history-bacaan', authenticateUser, historyBacaanUserRouter);
 
 //router.use('/api/user/tickets', authenticateUser, ticketRouter); // User ticket routes
 
@@ -80,6 +92,9 @@ router.use('/api/admin', affiliateRouter);
 router.use('/api/admin/kategori-soal-kecermatan', kategoriSoalKecermatanRouter);
 router.use('/api/admin/kiasan', kiasanRouter);
 router.use('/api/admin/soal-kecermatan', soalKecermatanRouter);
+router.use('/api/admin/bacaan', bacaanRouter);
+router.use('/api/admin/kategori-soal-bacaan', kategoriSoalBacaanRouter);
+router.use('/api/admin/soal-bacaan', soalBacaanRouter);
 
 router.use('/api/admin', authenticateUser, authorizeRoles('ADMIN'));
 router.use('/api/admin/users', manageUserRouter);
@@ -95,6 +110,7 @@ router.use('/api/admin/paket-pembelian-materi', paketPembelianMateriRouter);
 router.use('/api/admin/paket-pembelian-bimbel', paketPembelianBimbelRouter);
 router.use('/api/admin/paket-pembelian-fitur', paketPembelianFiturRouter);
 router.use('/api/admin/paket-pembelian-kecermatan', paketPembelianKecermatanRouter);
+router.use('/api/admin/paket-pembelian-bacaan', paketPembelianBacaanRouter);
 router.use('/api/admin/event', eventRouter);
 router.use('/api/admin/home-section', sectionHomeRouter);
 router.use('/api/admin/notification', notificationRouter);
