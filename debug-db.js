@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const history = await prisma.historyIsian.findMany({ where: { userId: 16633 } }); console.log(history); } main();

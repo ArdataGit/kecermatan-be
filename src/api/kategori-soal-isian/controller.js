@@ -1,3 +1,4 @@
+
 const Joi = require('joi');
 
 const database = require('#database');
@@ -19,8 +20,6 @@ const get = async (req, res, next) => {
 
     const validate = await schema.validateAsync(req.query);
 
-    
-    
     // Extract paketPembelianId filter, do NOT put it in validate.filters to avoid filterToJson processing it
     const paketPembelianId = validate.filters?.paketPembelianId || validate.paketPembelianId;
     if (validate.filters?.paketPembelianId) {
@@ -30,7 +29,7 @@ const get = async (req, res, next) => {
     const take = validate.take ? { take: validate.take } : {};
 
     const result = await database.$transaction([
-      database.kategoriSoalBacaan.findMany({
+      database.kategoriSoalIsian.findMany({
         ...take,
         skip: validate.skip,
         orderBy: {
@@ -39,7 +38,7 @@ const get = async (req, res, next) => {
         where: {
           ...filterToJson(validate),
           ...(paketPembelianId && {
-            paketPembelianBacaan: {
+            paketPembelianIsian: {
               some: {
                 paketPembelianId: paketPembelianId,
               },
@@ -49,12 +48,12 @@ const get = async (req, res, next) => {
         include: {
           _count: {
             select: {
-              bacaan: true,
+              soalIsian: true,
             },
           },
         },
       }),
-      database.kategoriSoalBacaan.count({
+      database.kategoriSoalIsian.count({
         where: filterToJson(validate),
       }),
     ]);
@@ -73,7 +72,7 @@ const find = async (req, res, next) => {
 
     const validate = await schema.validateAsync(req.params);
 
-    const result = await database.kategoriSoalBacaan.findUnique({
+    const result = await database.kategoriSoalIsian.findUnique({
       where: {
         id: validate.id,
       },
@@ -83,7 +82,7 @@ const find = async (req, res, next) => {
 
     res.status(200).json({
       data: result,
-      msg: 'Berhasil mengambil detail kategori bacaan',
+      msg: 'Berhasil mengambil detail kategori isian',
     });
   } catch (error) {
     next(error);
@@ -99,13 +98,13 @@ const insert = async (req, res, next) => {
 
     const validate = await schema.validateAsync(req.body);
 
-    const result = await database.kategoriSoalBacaan.create({
+    const result = await database.kategoriSoalIsian.create({
       data: validate,
     });
 
     res.status(200).json({
       data: result,
-      msg: 'Berhasil menambahkan Kategori Bacaan',
+      msg: 'Berhasil menambahkan Kategori Isian',
     });
   } catch (error) {
     next(error);
@@ -125,7 +124,7 @@ const update = async (req, res, next) => {
       ...req.params,
     });
 
-    const isExist = await database.kategoriSoalBacaan.findUnique({
+    const isExist = await database.kategoriSoalIsian.findUnique({
       where: {
         id: validate.id,
       },
@@ -133,7 +132,7 @@ const update = async (req, res, next) => {
 
     if (!isExist) throw new BadRequestError('Kategori tidak ditemukan');
 
-    const result = await database.kategoriSoalBacaan.update({
+    const result = await database.kategoriSoalIsian.update({
       where: {
         id: validate.id,
       },
@@ -145,7 +144,7 @@ const update = async (req, res, next) => {
 
     res.status(200).json({
       data: result,
-      msg: 'Berhasil mengubah data kategori bacaan',
+      msg: 'Berhasil mengubah data kategori isian',
     });
   } catch (error) {
     next(error);
@@ -160,7 +159,7 @@ const remove = async (req, res, next) => {
 
     const validate = await schema.validateAsync(req.params);
 
-    const isExist = await database.kategoriSoalBacaan.findUnique({
+    const isExist = await database.kategoriSoalIsian.findUnique({
       where: {
         id: validate.id,
       },
@@ -168,7 +167,7 @@ const remove = async (req, res, next) => {
 
     if (!isExist) throw new BadRequestError('Kategori tidak ditemukan');
 
-    const result = await database.kategoriSoalBacaan.delete({
+    const result = await database.kategoriSoalIsian.delete({
       where: {
         id: validate.id,
       },
@@ -176,7 +175,7 @@ const remove = async (req, res, next) => {
 
     res.status(200).json({
       data: result,
-      msg: 'Berhasil menghapus kategori bacaan',
+      msg: 'Berhasil menghapus kategori isian',
     });
   } catch (error) {
     next(error);
@@ -190,7 +189,7 @@ const getHistory = async (req, res, next) => {
       take: Joi.number(),
       sortBy: Joi.string(),
       descending: Joi.boolean(),
-      kategoriSoalBacaanId: Joi.number().required(),
+      kategoriSoalIsianId: Joi.number().required(),
       search: Joi.string().allow(null, ''),
     }).unknown(true);
 
@@ -199,11 +198,9 @@ const getHistory = async (req, res, next) => {
     const skip = validate.skip ? { skip: validate.skip } : {};
 
     const whereClause = {
-      historyBacaan: {
+      historyIsian: {
         some: {
-          bacaan: {
-            kategoriSoalBacaanId: validate.kategoriSoalBacaanId
-          }
+          kategoriSoalIsianId: validate.kategoriSoalIsianId
         }
       }
     };
@@ -224,22 +221,17 @@ const getHistory = async (req, res, next) => {
             name: true,
             email: true,
             gambar: true,
-            historyBacaan: {
+            historyIsian: {
                 where: {
-                    bacaan: {
-                        kategoriSoalBacaanId: validate.kategoriSoalBacaanId
-                    }
+                    kategoriSoalIsianId: validate.kategoriSoalIsianId
                 },
-                select: {
-                    isCorrect: true,
-                    createdAt: true
-                }
+                    select: {
+                        createdAt: true,
+                        score: true
+                    }
             }
         },
         orderBy: {
-            // For now, sorting by user info is easiest. 
-            // Sorting by aggregated score would require raw query or post-processing (which breaks pagination).
-            // Let's stick to default sorting or name for now, or createdAt descending.
             updatedAt: 'desc' 
         },
       }),
@@ -248,14 +240,12 @@ const getHistory = async (req, res, next) => {
       }),
     ]);
 
-    // Transform result to match desired format
+    // Transform result
     const transformedList = result[0].map(user => {
-        const history = user.historyBacaan || [];
+        const history = user.historyIsian || [];
         const totalSoal = history.length;
-        const totalBenar = history.filter(h => h.isCorrect).length;
-        const totalSalah = totalSoal - totalBenar;
-        const score = totalBenar; // Assuming 1 point per correct answer for now
-
+        const totalScore = history.reduce((acc, curr) => acc + (curr.score || 0), 0);
+        
         // Find latest submission time
         const latestInfo = history.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
         const createdAt = latestInfo ? latestInfo.createdAt : null;
@@ -267,22 +257,76 @@ const getHistory = async (req, res, next) => {
                 email: user.email,
                 gambar: user.gambar
             },
-            score,
             totalSoal,
-            totalBenar,
-            totalSalah,
+            totalScore,
             createdAt
         };
     });
 
-    // If sorting by score was requested, we might need to do it here for the current page, 
-    // but global sorting isn't possible this way. 
-    // Given the constraints, we'll return the page as is.
-    if(validate.sortBy === 'score') {
-        transformedList.sort((a, b) => validate.descending ? b.score - a.score : a.score - b.score);
-    }
-
     return returnPagination(req, res, [transformedList, result[1]]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getDetailHistory = async (req, res, next) => {
+  try {
+    const schema = Joi.object({
+      skip: Joi.number(),
+      take: Joi.number(),
+      sortBy: Joi.string(),
+      descending: Joi.boolean(),
+      kategoriSoalIsianId: Joi.number().required(),
+      userId: Joi.number().required(),
+    }).unknown(true);
+
+    const validate = await schema.validateAsync(req.query);
+    const start = validate.skip || 0;
+    // const end = start + (validate.take || 100);
+
+    const result = await database.historyIsian.findMany({
+      where: {
+        userId: validate.userId,
+        kategoriSoalIsianId: validate.kategoriSoalIsianId
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            gambar: true,
+          },
+        },
+        soalIsian: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    
+    // Deduplicate logic if needed (though historyIsian logic handles duplicates via upsert in other places, 
+    // my insert logic earlier was a check-then-update/create, so duplicates shouldn't exist ideally)
+    const uniqueHistoryMap = new Map();
+    result.forEach(item => {
+        if (!uniqueHistoryMap.has(item.soalIsianId)) {
+            uniqueHistoryMap.set(item.soalIsianId, item);
+        }
+    });
+
+    const uniqueHistory = Array.from(uniqueHistoryMap.values());
+    // Pagination slicing if needed
+    
+    return res.status(200).json({
+        data: {
+            list: uniqueHistory, // returning all for detail view usually
+            pagination: {
+                total: uniqueHistory.length.toString(),
+                skip: Number(validate.skip || 0),
+                take: Number(validate.take || 0),
+                currentTotal: uniqueHistory.length
+            }
+        },
+        msg: 'Berhasil mengambil detail history user isian'
+    });
   } catch (error) {
     next(error);
   }
@@ -295,23 +339,17 @@ const getUserHistory = async (req, res, next) => {
       take: Joi.number(),
       sortBy: Joi.string(),
       descending: Joi.boolean(),
-      kategoriSoalBacaanId: Joi.number().required(),
+      kategoriSoalIsianId: Joi.number().required(),
       userId: Joi.number().optional(),
     }).unknown(true);
 
     const validate = await schema.validateAsync(req.query);
-    
-    // Use logged in user id if no userId param provided (for user-side access)
     const targetUserId = validate.userId || req.user?.id;
-    const take = validate.take ? { take: validate.take } : {};
-    const skip = validate.skip ? { skip: validate.skip } : {};
-
-    const result = await database.historyBacaan.findMany({
+    
+    const result = await database.historyIsian.findMany({
       where: {
         userId: targetUserId,
-        bacaan: {
-           kategoriSoalBacaanId: validate.kategoriSoalBacaanId
-        }
+        kategoriSoalIsianId: validate.kategoriSoalIsianId
       },
       include: {
         user: {
@@ -320,42 +358,62 @@ const getUserHistory = async (req, res, next) => {
             gambar: true,
           },
         },
-        bacaan: true,
-        soalBacaan: true,
+        soalIsian: true,
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
-
-    // Deduplicate: Keep only the latest attempt for each soalBacaanId
+    
     const uniqueHistoryMap = new Map();
     result.forEach(item => {
-        if (!uniqueHistoryMap.has(item.soalBacaanId)) {
-            uniqueHistoryMap.set(item.soalBacaanId, item);
+        if (!uniqueHistoryMap.has(item.soalIsianId)) {
+            uniqueHistoryMap.set(item.soalIsianId, item);
         }
     });
 
     const uniqueHistory = Array.from(uniqueHistoryMap.values());
-
-    // Apply pagination manually if needed, or just return all (since it's a detail view usually showing all questions)
-    // The frontend sends take: 100, which is likely enough for "all unique questions" if the exam isn't huge.
-    // If we want to strictly follow skip/take:
-    const start = validate.skip || 0;
-    const end = start + (validate.take || uniqueHistory.length);
-    const paginatedResult = uniqueHistory.slice(start, end);
-
+    
     return res.status(200).json({
         data: {
-            list: paginatedResult,
+            list: uniqueHistory,
             pagination: {
                 total: uniqueHistory.length.toString(),
                 skip: Number(validate.skip || 0),
                 take: Number(validate.take || 0),
-                currentTotal: paginatedResult.length
+                currentTotal: uniqueHistory.length
             }
         },
-        msg: 'Berhasil mengambil detail history user'
+        msg: 'Berhasil mengambil history user isian'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateScore = async (req, res, next) => {
+  try {
+    const schema = Joi.object({
+      historyId: Joi.number().required(),
+      score: Joi.number().required(),
+    });
+
+    const validate = await schema.validateAsync(req.body);
+
+    const isExist = await database.historyIsian.findUnique({
+        where: { id: validate.historyId }
+    });
+
+    if (!isExist) throw new BadRequestError('History tidak ditemukan');
+
+    const result = await database.historyIsian.update({
+        where: { id: validate.historyId },
+        data: { score: validate.score }
+    });
+
+    res.status(200).json({
+        data: result,
+        msg: 'Berhasil mengupdate nilai'
     });
   } catch (error) {
     next(error);
@@ -369,5 +427,7 @@ module.exports = {
   update,
   remove,
   getHistory,
+  getDetailHistory,
   getUserHistory,
+  updateScore
 };

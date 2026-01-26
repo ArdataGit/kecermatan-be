@@ -225,6 +225,16 @@ const findMyClass = async (req, res, next) => {
                 kategoriSoalKecermatan: true,
               },
             },
+            paketPembelianBacaan: {
+              include: {
+                kategoriSoalBacaan: true,
+              },
+            },
+            paketPembelianIsian: {
+              include: {
+                kategoriSoalIsian: true,
+              },
+            },
           },
         },
       },
@@ -274,6 +284,52 @@ const findMyClass = async (req, res, next) => {
           return item;
         })
       );
+    }
+
+    if (
+        result.paketPembelian &&
+        result.paketPembelian.paketPembelianBacaan
+    ) {
+        result.paketPembelian.paketPembelianBacaan = await Promise.all(
+            result.paketPembelian.paketPembelianBacaan.map(async (item) => {
+                const kategori = await database.kategoriSoalBacaan.findUnique({
+                    where: { id: item.kategoriSoalBacaanId },
+                    include: {
+                        _count: {
+                            select: { bacaan: true }
+                        }
+                    }
+                });
+
+                if (item.kategoriSoalBacaan) {
+                    item.kategoriSoalBacaan.jumlah_soal = kategori?._count?.bacaan || 0;
+                }
+                return item;
+            })
+        );
+    }
+
+    if (
+        result.paketPembelian &&
+        result.paketPembelian.paketPembelianIsian
+    ) {
+        result.paketPembelian.paketPembelianIsian = await Promise.all(
+            result.paketPembelian.paketPembelianIsian.map(async (item) => {
+                const kategori = await database.kategoriSoalIsian.findUnique({
+                    where: { id: item.kategoriSoalIsianId },
+                    include: {
+                        _count: {
+                            select: { soalIsian: true }
+                        }
+                    }
+                });
+
+                if (item.kategoriSoalIsian) {
+                    item.kategoriSoalIsian.jumlah_soal = kategori?._count?.soalIsian || 0;
+                }
+                return item;
+            })
+        );
     }
 
     return res.status(200).json({
@@ -326,6 +382,8 @@ const getMyClass = async (req, res, next) => {
                   paketPembelianTryout: true,
                   paketPembelianBimbel: true,
                   paketPembelianKecermatan: true,
+                  paketPembelianBacaan: true,
+                  paketPembelianIsian: true,
                 },
               },
             },

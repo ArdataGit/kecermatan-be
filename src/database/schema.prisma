@@ -14,79 +14,73 @@ model AffiliateWithdrawal {
   amount              Decimal                   @db.Decimal(10, 2)
   status              AffiliateWithdrawalStatus @default(pending)
   notes               String?                   @db.Text
-  payload_destination String?                   @db.Text
   processedAt         DateTime?
   createdAt           DateTime                  @default(now())
   updatedAt           DateTime                  @updatedAt
+  payload_destination String?                   @db.Text
+  user                User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  @@index([userId], map: "affiliate_withdrawals_userId_fkey")
   @@map("affiliate_withdrawals")
 }
 
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String     @unique
-  name         String?
-  noWA         String?
-  jenisKelamin enumGender @default(L)
-  alamat       String?    @db.Text
-  provinsi     String?
-  kabupaten    String?
-  kecamatan    String?
-  password     String
-  gambar       String?    @default("public/DEFAULT_USER.png")
-  role         EnumRole   @default(USER)
-  verifyAt     DateTime?
-  jwtVersion   Int        @default(0)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  // Affiliate fields
-  affiliateLink       String?         @db.VarChar(500)
-  affiliateCode       String?         @db.VarChar(100)
-  affiliateFromUserId Int?
-  affiliateCommission Int             @default(0)
-  affiliateBalance    Decimal         @default(0.00) @db.Decimal(10, 2)
-  affiliateStatus     AffiliateStatus @default(active)
-  commissionType      String?         @default("percent")
-
-  // Relations
+  id                   Int                   @id @default(autoincrement())
+  email                String                @unique
+  name                 String?
+  noWA                 String?
+  jenisKelamin         enumGender            @default(L)
+  alamat               String?               @db.Text
+  provinsi             String?
+  kabupaten            String?
+  kecamatan            String?
+  password             String
+  gambar               String?               @default("public/DEFAULT_USER.png")
+  role                 EnumRole              @default(USER)
+  verifyAt             DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  jwtVersion           Int                   @default(0)
+  affiliateBalance     Decimal               @default(0.00) @db.Decimal(10, 2)
+  affiliateCode        String?               @db.VarChar(100)
+  affiliateCommission  Int                   @default(0)
+  affiliateFromUserId  Int?
+  affiliateLink        String?               @db.VarChar(500)
+  affiliateStatus      AffiliateStatus       @default(active)
+  commissionType       String?               @default("percent")
+  feedback             Feedback?
+  KecermatanHistory    KecermatanHistory[]
+  KecermatanRanking    KecermatanRanking[]
+  NotificationUser     NotificationUser[]
+  referredPurchases    Pembelian[]           @relation("ReferredPurchases")
+  Pembelian            Pembelian[]
+  Tryout               Tryout[]
   affiliateFromUser    User?                 @relation("AffiliateFrom", fields: [affiliateFromUserId], references: [id])
   affiliateToUsers     User[]                @relation("AffiliateFrom")
   affiliateWithdrawals AffiliateWithdrawal[]
+  historyBacaan        historyBacaan[]
+  historyIsian         historyIsian[]
+  Ticket               tickets[]
 
-  // Relasi baru untuk affiliate referrals
-  referredPurchases Pembelian[] @relation("ReferredPurchases")
-
-  NotificationUser NotificationUser[]
-  Pembelian        Pembelian[]
-  Tryout           Tryout[]
-  Ticket           tickets[]
-  feedback         Feedback?
-
-  KecermatanRanking KecermatanRanking[]
-  KecermatanHistory KecermatanHistory[]
-  historyBacaan     historyBacaan[]
+  @@index([affiliateFromUserId], map: "User_affiliateFromUserId_fkey")
 }
 
 model FeedbackSetting {
   id        Int      @id @default(autoincrement())
-  isActive  Boolean  @default(false) // admin bisa aktif/nonaktif
+  isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Feedback {
   id        Int      @id @default(autoincrement())
-  userId    Int      @unique // user hanya bisa isi sekali
+  userId    Int      @unique
   pekerjaan String?  @db.Text
-  rating    Int // 1-5
+  rating    Int
   saran     String?  @db.Text
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model DashboardNotification {
@@ -107,7 +101,7 @@ model tickets {
   title         String
   description   String   @db.Text
   category      String?
-  status        String   @default("open") // Possible values: open, in_progress, resolved, closed
+  status        String   @default("open")
   image         String?
   adminResponse String?  @db.Text
   createdAt     DateTime @default(now())
@@ -119,26 +113,28 @@ model tickets {
 
 model BankSoalParentCategory {
   id               Int                @id @default(autoincrement())
-  nama             String             @unique
-  keterangan       String?            @db.Text
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+  keterangan       String?            @db.Text
+  nama             String             @unique
   BankSoalCategory BankSoalCategory[]
 }
 
 model BankSoalCategory {
   id                 Int                    @id @default(autoincrement())
-  parentCategoryId   Int
-  parentCategory     BankSoalParentCategory @relation(fields: [parentCategoryId], references: [id], onDelete: Cascade)
   nama               String
   kkm                Int                    @default(0)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  parentCategoryId   Int
   tipePenilaian      tipePenilaian          @default(BENAR_SALAH)
   keterangan         String?                @db.Text
   paketRekomendasiId Int?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
   BankSoal           BankSoal[]
+  parentCategory     BankSoalParentCategory @relation(fields: [parentCategoryId], references: [id], onDelete: Cascade)
   PaketLatihanSoal   PaketLatihanSoal[]
+
+  @@index([parentCategoryId], map: "BankSoalCategory_parentCategoryId_fkey")
 }
 
 model BankSoalSubCategory {
@@ -269,35 +265,45 @@ model paketPembelianTryout {
 }
 
 model paketPembelianKecermatan {
-  id               Int            @id @default(autoincrement())
-  paketPembelianId Int
-  kategoriSoalKecermatanId   Int?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  type             enumTypePaketLatihanKecermatan @default(KECERMATAN)
-  paketPembelian   paketPembelian @relation(fields: [paketPembelianId], references: [id], onDelete: Cascade)
-  kategoriSoalKecermatan     KategoriSoalKecermatan?  @relation(fields: [kategoriSoalKecermatanId], references: [id])
-
+  id                       Int                            @id @default(autoincrement())
+  paketPembelianId         Int
+  createdAt                DateTime                       @default(now())
+  updatedAt                DateTime                       @updatedAt
+  type                     enumTypePaketLatihanKecermatan @default(KECERMATAN)
+  kategoriSoalKecermatanId Int?
+  kategoriSoalKecermatan   KategoriSoalKecermatan?        @relation(fields: [kategoriSoalKecermatanId], references: [id])
+  paketPembelian           paketPembelian                 @relation(fields: [paketPembelianId], references: [id], onDelete: Cascade)
 
   @@index([paketPembelianId])
   @@index([kategoriSoalKecermatanId])
- 
 }
 
-model paketPembelianBacaan{
-  id               Int            @id @default(autoincrement())
-  paketPembelianId Int
-  kategoriSoalBacaanId   Int?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  type             enumTypePaketLatihanBacaan @default(BACAAN)
-  paketPembelian   paketPembelian @relation(fields: [paketPembelianId], references: [id], onDelete: Cascade)
-  kategoriSoalBacaan     kategoriSoalBacaan?  @relation(fields: [kategoriSoalBacaanId], references: [id])
-
+model paketPembelianBacaan {
+  id                   Int                        @id @default(autoincrement())
+  paketPembelianId     Int
+  kategoriSoalBacaanId Int?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  type                 enumTypePaketLatihanBacaan @default(BACAAN)
+  kategoriSoalBacaan   kategoriSoalBacaan?        @relation(fields: [kategoriSoalBacaanId], references: [id])
+  paketPembelian       paketPembelian             @relation(fields: [paketPembelianId], references: [id], onDelete: Cascade)
 
   @@index([paketPembelianId])
   @@index([kategoriSoalBacaanId])
- 
+}
+
+model paketPembelianIsian {
+  id                  Int                       @id @default(autoincrement())
+  paketPembelianId    Int
+  kategoriSoalIsianId Int?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  type                enumTypePaketLatihanIsian @default(ISIAN)
+  kategoriSoalIsian   kategoriSoalIsian?        @relation(fields: [kategoriSoalIsianId], references: [id])
+  paketPembelian      paketPembelian            @relation(fields: [paketPembelianId], references: [id], onDelete: Cascade)
+
+  @@index([paketPembelianId])
+  @@index([kategoriSoalIsianId])
 }
 
 model paketPembelian {
@@ -311,18 +317,19 @@ model paketPembelian {
   updatedAt                DateTime                   @updatedAt
   panduan                  String?                    @db.Text
   paketLatihanId           Int?
-  linkWa                   String?
   isActive                 Boolean                    @default(true)
+  linkWa                   String?
   Pembelian                Pembelian[]
+  VoucherProduct           VoucherProduct[]
   PaketLatihan             PaketLatihan?              @relation(fields: [paketLatihanId], references: [id])
+  paketPembelianBacaan     paketPembelianBacaan[]
   paketPembelianBimbel     paketPembelianBimbel[]
   paketPembelianCategory   paketPembelianCategory[]
   paketPembelianFitur      paketPembelianFitur[]
+  paketPembelianIsian      paketPembelianIsian[]
+  paketPembelianKecermatan paketPembelianKecermatan[]
   paketPembelianMateri     paketPembelianMateri[]
   paketPembelianTryout     paketPembelianTryout[]
-  paketPembelianKecermatan paketPembelianKecermatan[]
-  paketPembelianBacaan     paketPembelianBacaan[]
-  VoucherProduct           VoucherProduct[]
 
   @@index([paketLatihanId], map: "paketPembelian_paketLatihanId_fkey")
 }
@@ -361,40 +368,32 @@ model PaketLatihanSoal {
 }
 
 model Pembelian {
-  id                 Int                 @id @default(autoincrement())
-  userId             Int?
-  paketPembelianId   Int?
-  namaPaket          String?
-  duration           Int                 @default(0)
-  paymentUrl         String?
-  status             enumPembelianStatus
-  voucherCode        String?
-  voucherValue       Int                 @default(0)
-  voucherAlumniValue Int                 @default(0)
-  amount             Int                 @default(0)
-  invoice            String?             @unique
-  paymentMethod      String
-  paidAt             DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  expiredAt          DateTime?
+  id                          Int                 @id @default(autoincrement())
+  userId                      Int?
+  paketPembelianId            Int?
+  namaPaket                   String?
+  duration                    Int                 @default(0)
+  paymentUrl                  String?
+  status                      enumPembelianStatus
+  voucherCode                 String?
+  voucherValue                Int                 @default(0)
+  voucherAlumniValue          Int                 @default(0)
+  amount                      Int                 @default(0)
+  invoice                     String?             @unique
+  paymentMethod               String
+  paidAt                      DateTime?
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+  expiredAt                   DateTime?
+  affiliateUserId             Int?
+  affiliate_commission_amount Decimal             @default(0.00) @db.Decimal(10, 2)
+  affiliate_commission_type   enumTypeComission   @default(percent)
+  affiliateUser               User?               @relation("ReferredPurchases", fields: [affiliateUserId], references: [id])
+  paketPembelian              paketPembelian?     @relation(fields: [paketPembelianId], references: [id])
+  user                        User?               @relation(fields: [userId], references: [id])
 
-  // Field baru untuk affiliate
-  affiliateUserId             Int? // Nullable, references ke User.id (bigint unsigned di DB)
-  affiliate_commission_amount Decimal           @default(0.00) @db.Decimal(10, 2)
-  affiliate_commission_type   enumTypeComission @default(percent)
-
-  // Relasi existing
-  paketPembelian paketPembelian? @relation(fields: [paketPembelianId], references: [id])
-  user           User?           @relation(fields: [userId], references: [id])
-
-  // Relasi baru ke affiliate user (yang mereferensikan transaksi ini)
-  affiliateUser User? @relation("ReferredPurchases", fields: [affiliateUserId], references: [id])
-
-  // Index existing
   @@index([paketPembelianId], map: "Pembelian_paketPembelianId_fkey")
   @@index([userId], map: "Pembelian_userId_fkey")
-  // Index baru untuk affiliate
   @@index([affiliateUserId], map: "Pembelian_affiliateUserId_fkey")
 }
 
@@ -419,8 +418,8 @@ model VoucherProduct {
   paketId        Int
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  voucher        Voucher        @relation(fields: [voucherId], references: [id], onDelete: Cascade)
   paketPembelian paketPembelian @relation(fields: [paketId], references: [id], onDelete: Cascade)
+  voucher        Voucher        @relation(fields: [voucherId], references: [id], onDelete: Cascade)
 
   @@index([voucherId], map: "VoucherProduct_voucherId_fkey")
   @@index([paketId], map: "VoucherProduct_paketId_fkey")
@@ -528,6 +527,181 @@ model NotificationUser {
   @@index([userId], map: "NotificationUser_userId_fkey")
 }
 
+model KategoriSoalKecermatan {
+  id                       Int                        @id @default(autoincrement())
+  judul_kategori           String
+  keterangan               String?                    @db.Text
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  KecermatanHistory        KecermatanHistory[]
+  KecermatanRanking        KecermatanRanking[]
+  Kiasan                   Kiasan[]
+  paketPembelianKecermatan paketPembelianKecermatan[]
+}
+
+model Kiasan {
+  id                       Int                    @id @default(autoincrement())
+  kategoriSoalKecermatanId Int
+  karakter                 Json
+  kiasan                   Json
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  waktu                    Int                    @default(0)
+  KecermatanHistory        KecermatanHistory[]
+  kategoriSoalKecermatan   KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
+  SoalKecermatan           SoalKecermatan[]
+
+  @@index([kategoriSoalKecermatanId])
+}
+
+model SoalKecermatan {
+  id                Int                 @id @default(autoincrement())
+  kiasanId          Int
+  soal              Json
+  jawaban           String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  KecermatanHistory KecermatanHistory[]
+  kiasan            Kiasan              @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
+
+  @@index([kiasanId])
+}
+
+model KecermatanRanking {
+  id                       Int                    @id @default(autoincrement())
+  userId                   Int
+  kategoriSoalKecermatanId Int
+  score                    Int
+  totalSoal                Int
+  totalBenar               Int
+  totalSalah               Int
+  waktu                    Int
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  kategoriSoalKecermatan   KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
+  user                     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([kategoriSoalKecermatanId], map: "KecermatanRanking_kategoriSoalKecermatanId_fkey")
+  @@index([userId], map: "KecermatanRanking_userId_fkey")
+}
+
+model KecermatanHistory {
+  id                       Int                    @id @default(autoincrement())
+  userId                   Int
+  kategoriSoalKecermatanId Int
+  soalKecermatanId         Int
+  jawaban                  String
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  kiasanId                 Int?
+  kategoriSoalKecermatan   KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
+  kiasan                   Kiasan?                @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
+  soalKecermatan           SoalKecermatan         @relation(fields: [soalKecermatanId], references: [id], onDelete: Cascade)
+  user                     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([kategoriSoalKecermatanId], map: "KecermatanHistory_kategoriSoalKecermatanId_fkey")
+  @@index([kiasanId], map: "KecermatanHistory_kiasanId_fkey")
+  @@index([soalKecermatanId], map: "KecermatanHistory_soalKecermatanId_fkey")
+  @@index([userId], map: "KecermatanHistory_userId_fkey")
+}
+
+model kategoriSoalBacaan {
+  id                   Int                    @id @default(autoincrement())
+  judul_kategori       String
+  keterangan           String?                @db.Text
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  bacaan               Bacaan[]
+  paketPembelianBacaan paketPembelianBacaan[]
+}
+
+model Bacaan {
+  id                   Int                @id @default(autoincrement())
+  bacaan               String             @db.Text
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  kategoriSoalBacaanId Int
+  kategoriSoalBacaan   kategoriSoalBacaan @relation(fields: [kategoriSoalBacaanId], references: [id], onDelete: Cascade)
+  historyBacaan        historyBacaan[]
+  soalBacaan           soalBacaan[]
+
+  @@index([kategoriSoalBacaanId], map: "Bacaan_kategoriSoalBacaanId_fkey")
+}
+
+model soalBacaan {
+  id            Int             @id @default(autoincrement())
+  bacaanId      Int
+  soal          String          @db.Text
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  jawaban       String?
+  historyBacaan historyBacaan[]
+  bacaan        Bacaan          @relation(fields: [bacaanId], references: [id], onDelete: Cascade)
+
+  @@index([bacaanId], map: "soalBacaan_bacaanId_fkey")
+}
+
+model historyBacaan {
+  id           Int        @id @default(autoincrement())
+  userId       Int
+  bacaanId     Int
+  soalBacaanId Int
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  isCorrect    Boolean    @default(false)
+  jawaban      String
+  bacaan       Bacaan     @relation(fields: [bacaanId], references: [id], onDelete: Cascade)
+  soalBacaan   soalBacaan @relation(fields: [soalBacaanId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([bacaanId], map: "historyBacaan_bacaanId_fkey")
+  @@index([soalBacaanId], map: "historyBacaan_soalBacaanId_fkey")
+  @@index([userId], map: "historyBacaan_userId_fkey")
+}
+
+model kategoriSoalIsian {
+  id                  Int                   @id @default(autoincrement())
+  judul_kategori      String
+  keterangan          String?               @db.Text
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  historyIsian        historyIsian[]
+  paketPembelianIsian paketPembelianIsian[]
+  soalIsian           soalIsian[]
+}
+
+model soalIsian {
+  id                  Int               @id @default(autoincrement())
+  kategoriSoalIsianId Int
+  soal                String            @db.Text
+  jawaban             String?           @db.Text
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  historyIsian        historyIsian[]
+  kategoriSoalIsian   kategoriSoalIsian @relation(fields: [kategoriSoalIsianId], references: [id], onDelete: Cascade)
+
+  @@index([kategoriSoalIsianId], map: "soalIsian_kategoriSoalIsianId_fkey")
+}
+
+model historyIsian {
+  id                  Int               @id @default(autoincrement())
+  userId              Int
+  kategoriSoalIsianId Int
+  soalIsianId         Int
+  jawaban             String
+  isCorrect           Boolean           @default(false)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  score               Int               @default(0)
+  kategoriSoalIsian   kategoriSoalIsian @relation(fields: [kategoriSoalIsianId], references: [id], onDelete: Cascade)
+  soalIsian           soalIsian         @relation(fields: [soalIsianId], references: [id], onDelete: Cascade)
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([kategoriSoalIsianId])
+  @@index([soalIsianId])
+}
+
 enum EnumRole {
   ADMIN
   USER
@@ -536,11 +710,6 @@ enum EnumRole {
 enum enumGender {
   L
   P
-}
-
-enum enumAsn {
-  PPPK
-  CPNS
 }
 
 enum tipePenilaian {
@@ -568,6 +737,15 @@ enum enumTypePaketLatihanKecermatan {
 }
 
 enum enumTypePaketLatihanBacaan {
+  BACAAN
+  KECERMATAN
+  TRYOUT
+  PENDAHULUAN
+  PEMANTAPAN
+}
+
+enum enumTypePaketLatihanIsian {
+  ISIAN
   BACAAN
   KECERMATAN
   TRYOUT
@@ -649,122 +827,3 @@ enum enumTypeComission {
   percent
   nominal
 }
-
-model KategoriSoalKecermatan {
-  id                       Int                        @id @default(autoincrement())
-  judul_kategori           String
-  keterangan               String?                    @db.Text
-  createdAt                DateTime                   @default(now())
-  updatedAt                DateTime                   @updatedAt
-  Kiasan                   Kiasan[]
-  paketPembelianKecermatan paketPembelianKecermatan[]
-  KecermatanRanking        KecermatanRanking[]
-  KecermatanHistory        KecermatanHistory[]
-}
-
-model Kiasan {
-  id                       Int                    @id @default(autoincrement())
-  kategoriSoalKecermatanId Int
-  karakter                 Json
-  kiasan                   Json
-  waktu                    Int                    @default(0)
-  createdAt                DateTime               @default(now())
-  updatedAt                DateTime               @updatedAt
-  kategoriSoalKecermatan   KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
-  SoalKecermatan           SoalKecermatan[]
-
-  @@index([kategoriSoalKecermatanId])
-  KecermatanHistory KecermatanHistory[]
-}
-
-model SoalKecermatan {
-  id        Int      @id @default(autoincrement())
-  kiasanId  Int
-  soal      Json
-  jawaban   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  kiasan    Kiasan   @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
-
-  @@index([kiasanId])
-  KecermatanHistory KecermatanHistory[]
-}
-
-model KecermatanRanking{
-  id Int @id @default(autoincrement())
-  userId Int
-  kategoriSoalKecermatanId Int
-  score Int
-  totalSoal Int
-  totalBenar Int
-  totalSalah Int
-  waktu Int 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kategoriSoalKecermatan KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
-}
-
-model KecermatanHistory{
-  id Int @id @default(autoincrement())
-  userId Int
-  kategoriSoalKecermatanId Int
-  kiasanId Int?
-  soalKecermatanId Int
-  jawaban String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  soalKecermatan SoalKecermatan @relation(fields: [soalKecermatanId], references: [id], onDelete: Cascade)
-  kategoriSoalKecermatan KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
-  kiasan Kiasan? @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
-} 
-
-
-model kategoriSoalBacaan{
-  id Int @id @default(autoincrement())
-  judul_kategori String
-  keterangan String? @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  bacaan Bacaan[]
-  paketPembelianBacaan paketPembelianBacaan[]
-}
-
-
-model Bacaan{
-  id Int @id @default(autoincrement())  
-  kategoriSoalBacaanId Int
-  bacaan String @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  kategoriSoalBacaan kategoriSoalBacaan @relation(fields: [kategoriSoalBacaanId], references: [id], onDelete: Cascade)
-  soalBacaan soalBacaan[]
-  historyBacaan historyBacaan[]
-}
-
-model soalBacaan{
-  id Int @id @default(autoincrement())
-  bacaanId Int
-  soal String @db.Text
-  jawaban String? // "Ya" or "Tidak"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  bacaan Bacaan @relation(fields: [bacaanId], references: [id], onDelete: Cascade)
-  historyBacaan historyBacaan[]
-}
-
-model historyBacaan{
-  id Int @id @default(autoincrement())
-  userId Int
-  bacaanId Int
-  soalBacaanId Int
-  jawaban String
-  isCorrect Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bacaan Bacaan @relation(fields: [bacaanId], references: [id], onDelete: Cascade)
-  soalBacaan soalBacaan @relation(fields: [soalBacaanId], references: [id], onDelete: Cascade)
-} 
-

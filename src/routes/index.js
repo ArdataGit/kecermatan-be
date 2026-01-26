@@ -37,8 +37,11 @@ const kiasanRouter = require('#api/kiasan/route.js');
 const soalKecermatanRouter = require('#api/soal-kecermatan/route.js');
 const paketPembelianKecermatanRouter = require('#api/paket-pembelian-kecermatan/route.js'); 
 const paketPembelianBacaanRouter = require('#api/paket-pembelian-bacaan/route.js');
+const paketPembelianIsianRouter = require('#api/paket-pembelian-isian/route.js');
 const bacaanRouter = require('#api/bacaan/route.js');
 const kategoriSoalBacaanRouter = require('#api/kategori-soal-bacaan/route.js');
+const kategoriSoalIsianRouter = require('#api/kategori-soal-isian/route.js');
+const soalIsianRouter = require('#api/soal-isian/route.js');
 const soalBacaanRouter = require('#api/soal-bacaan/route.js');
 
 // User Routers for Bacaan
@@ -79,7 +82,14 @@ router.use('/api/user/kategori-soal-bacaan', authenticateUser, kategoriSoalBacaa
 router.use('/api/user/bacaan', authenticateUser, bacaanUserRouter); // Maps to route.user.js
 router.use('/api/user/history-bacaan', authenticateUser, historyBacaanUserRouter);
 
-//router.use('/api/user/tickets', authenticateUser, ticketRouter); // User ticket routes
+const kategoriSoalIsianUserRouter = require('#api/kategori-soal-isian/route.user.js');
+const soalIsianUserRouter = require('#api/soal-isian/route.user.js');
+const historyIsianUserRouter = require('#api/history-isian/route.user.js');
+
+router.use('/api/user/tickets', authenticateUser, ticketRouter); // User ticket routes
+router.use('/api/user/kategori-soal-isian', authenticateUser, kategoriSoalIsianUserRouter);
+router.use('/api/user/soal-isian', authenticateUser, soalIsianUserRouter);
+router.use('/api/user/history-isian', authenticateUser, historyIsianUserRouter);
 
 // Admin routes
 router.use('/api/admin/bank-soal', bankSoalRouter);
@@ -95,6 +105,8 @@ router.use('/api/admin/soal-kecermatan', soalKecermatanRouter);
 router.use('/api/admin/bacaan', bacaanRouter);
 router.use('/api/admin/kategori-soal-bacaan', kategoriSoalBacaanRouter);
 router.use('/api/admin/soal-bacaan', soalBacaanRouter);
+router.use('/api/admin/kategori-soal-isian', kategoriSoalIsianRouter);
+router.use('/api/admin/soal-isian', soalIsianRouter);
 
 router.use('/api/admin', authenticateUser, authorizeRoles('ADMIN'));
 router.use('/api/admin/users', manageUserRouter);
@@ -111,6 +123,7 @@ router.use('/api/admin/paket-pembelian-bimbel', paketPembelianBimbelRouter);
 router.use('/api/admin/paket-pembelian-fitur', paketPembelianFiturRouter);
 router.use('/api/admin/paket-pembelian-kecermatan', paketPembelianKecermatanRouter);
 router.use('/api/admin/paket-pembelian-bacaan', paketPembelianBacaanRouter);
+router.use('/api/admin/paket-pembelian-isian', paketPembelianIsianRouter);
 router.use('/api/admin/event', eventRouter);
 router.use('/api/admin/home-section', sectionHomeRouter);
 router.use('/api/admin/notification', notificationRouter);
