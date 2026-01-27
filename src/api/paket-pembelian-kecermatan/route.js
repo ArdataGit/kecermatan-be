@@ -14,6 +14,7 @@ const {
     insertRanking,
     getRanking,
     insertHistory,
+    getMyHistoryList,
   } = require('./controller');
 
 router.get('/get', get);
@@ -27,4 +28,5 @@ router.get('/get-history', getHistory);
 router.post('/kecermatan-history', insertHistory);
 router.post('/kecermatan-ranking', insertRanking);
 router.get('/kecermatan-ranking', getRanking);
+router.get('/history-list', getMyHistoryList);
 module.exports = router;

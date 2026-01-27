@@ -195,94 +195,168 @@ const getHistory = async (req, res, next) => {
     }).unknown(true);
 
     const validate = await schema.validateAsync(req.query);
-    const take = validate.take ? { take: validate.take } : {};
-    const skip = validate.skip ? { skip: validate.skip } : {};
+    const take = validate.take ? validate.take : 10;
+    const skip = validate.skip ? validate.skip : 0;
+
+    let userIds = undefined;
+    if (validate.search) {
+        const users = await database.user.findMany({
+            where: {
+                name: { contains: validate.search },
+            },
+            select: { id: true }
+        });
+        userIds = users.map(u => u.id);
+        if (userIds.length === 0) {
+             return returnPagination(req, res, [[], 0]);
+        }
+    }
+
+    const bacaanList = await database.bacaan.findMany({
+        where: { kategoriSoalBacaanId: validate.kategoriSoalBacaanId },
+        select: { id: true }
+    });
+    const bacaanIds = bacaanList.map(b => b.id);
+    
+    if (bacaanIds.length === 0) return returnPagination(req, res, [[], 0]);
 
     const whereClause = {
-      historyBacaan: {
-        some: {
-          bacaan: {
-            kategoriSoalBacaanId: validate.kategoriSoalBacaanId
-          }
-        }
-      }
+        bacaanId: { in: bacaanIds },
+        ...(userIds && { userId: { in: userIds } })
     };
 
-    if (validate.search) {
-        whereClause.name = {
-            contains: validate.search,
-        };
-    }
-
-    const result = await database.$transaction([
-      database.user.findMany({
-        ...take,
-        ...skip,
+    const groupedHistory = await database.historyBacaan.groupBy({
+        by: ['userId', 'bacaanHistoryId'],
         where: whereClause,
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            gambar: true,
-            historyBacaan: {
-                where: {
-                    bacaan: {
-                        kategoriSoalBacaanId: validate.kategoriSoalBacaanId
-                    }
-                },
-                select: {
-                    isCorrect: true,
-                    createdAt: true
-                }
-            }
+        _count: {
+            soalBacaanId: true // Total questions attempted
+        },
+        _max: {
+            createdAt: true
         },
         orderBy: {
-            // For now, sorting by user info is easiest. 
-            // Sorting by aggregated score would require raw query or post-processing (which breaks pagination).
-            // Let's stick to default sorting or name for now, or createdAt descending.
-            updatedAt: 'desc' 
+            _max: {
+                createdAt: 'desc'
+            }
         },
-      }),
-      database.user.count({
+        skip: skip,
+        take: take,
+    });
+    
+    const allGroups = await database.historyBacaan.groupBy({
+        by: ['userId', 'bacaanHistoryId'],
         where: whereClause,
-      }),
-    ]);
+    });
+    const totalCount = allGroups.length;
 
-    // Transform result to match desired format
-    const transformedList = result[0].map(user => {
-        const history = user.historyBacaan || [];
-        const totalSoal = history.length;
-        const totalBenar = history.filter(h => h.isCorrect).length;
+    const uniqueUserIdsInResult = [...new Set(groupedHistory.map(g => g.userId))];
+    const usersInfo = await database.user.findMany({
+        where: { id: { in: uniqueUserIdsInResult } },
+        select: { id: true, name: true, email: true, gambar: true }
+    });
+    const usersMap = new Map(usersInfo.map(u => [u.id, u]));
+
+    const transformedList = await Promise.all(groupedHistory.map(async (group) => {
+        const user = usersMap.get(group.userId) || { id: group.userId, name: 'Unknown', email: '-', gambar: null };
+        
+        const score = await database.historyBacaan.count({
+            where: {
+                userId: group.userId,
+                bacaanHistoryId: group.bacaanHistoryId,
+                bacaanId: { in: bacaanIds },
+                isCorrect: true
+            }
+        });
+        
+        const totalSoal = group._count.soalBacaanId;
+        const totalBenar = score;
         const totalSalah = totalSoal - totalBenar;
-        const score = totalBenar; // Assuming 1 point per correct answer for now
-
-        // Find latest submission time
-        const latestInfo = history.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-        const createdAt = latestInfo ? latestInfo.createdAt : null;
 
         return {
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                gambar: user.gambar
-            },
-            score,
-            totalSoal,
-            totalBenar,
-            totalSalah,
-            createdAt
+            user: user,
+            score: totalBenar,
+            totalSoal: totalSoal,
+            totalBenar: totalBenar,
+            totalSalah: totalSalah,
+            createdAt: group._max.createdAt,
+            bacaanHistoryId: group.bacaanHistoryId,
+            userId: group.userId 
         };
-    });
+    }));
 
-    // If sorting by score was requested, we might need to do it here for the current page, 
-    // but global sorting isn't possible this way. 
-    // Given the constraints, we'll return the page as is.
-    if(validate.sortBy === 'score') {
-        transformedList.sort((a, b) => validate.descending ? b.score - a.score : a.score - b.score);
+    return returnPagination(req, res, [transformedList, totalCount]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getDetailHistory = async (req, res, next) => {
+  try {
+    const schema = Joi.object({
+      skip: Joi.number(),
+      take: Joi.number(),
+      sortBy: Joi.string(),
+      descending: Joi.boolean(),
+      kategoriSoalBacaanId: Joi.number().required(),
+      userId: Joi.number().required(),
+      bacaanHistoryId: Joi.number().optional()
+    }).unknown(true);
+
+    const validate = await schema.validateAsync(req.query);
+    
+    const where = {
+        userId: validate.userId,
+        bacaan: {
+           kategoriSoalBacaanId: validate.kategoriSoalBacaanId
+        }
+    };
+    
+    if (validate.bacaanHistoryId) {
+        where.bacaanHistoryId = validate.bacaanHistoryId;
     }
 
-    return returnPagination(req, res, [transformedList, result[1]]);
+    const result = await database.historyBacaan.findMany({
+      where: where,
+      include: {
+        user: {
+          select: {
+            name: true,
+            gambar: true,
+          },
+        },
+        bacaan: true,
+        soalBacaan: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const uniqueHistoryMap = new Map();
+    result.forEach(item => {
+        if (!uniqueHistoryMap.has(item.soalBacaanId)) {
+            uniqueHistoryMap.set(item.soalBacaanId, item);
+        }
+    });
+
+    const uniqueHistory = Array.from(uniqueHistoryMap.values());
+    
+    const start = validate.skip || 0;
+    const end = start + (validate.take || uniqueHistory.length); 
+    const paginatedResult = uniqueHistory.slice(start, end);
+
+    return res.status(200).json({
+        data: {
+            list: paginatedResult,
+            pagination: {
+                total: uniqueHistory.length.toString(),
+                skip: Number(validate.skip || 0),
+                take: Number(validate.take || 0),
+                currentTotal: paginatedResult.length
+            }
+        },
+        msg: 'Berhasil mengambil detail history user'
+    });
   } catch (error) {
     next(error);
   }
@@ -328,7 +402,6 @@ const getUserHistory = async (req, res, next) => {
       },
     });
 
-    // Deduplicate: Keep only the latest attempt for each soalBacaanId
     const uniqueHistoryMap = new Map();
     result.forEach(item => {
         if (!uniqueHistoryMap.has(item.soalBacaanId)) {
@@ -338,9 +411,6 @@ const getUserHistory = async (req, res, next) => {
 
     const uniqueHistory = Array.from(uniqueHistoryMap.values());
 
-    // Apply pagination manually if needed, or just return all (since it's a detail view usually showing all questions)
-    // The frontend sends take: 100, which is likely enough for "all unique questions" if the exam isn't huge.
-    // If we want to strictly follow skip/take:
     const start = validate.skip || 0;
     const end = start + (validate.take || uniqueHistory.length);
     const paginatedResult = uniqueHistory.slice(start, end);
@@ -369,5 +439,6 @@ module.exports = {
   update,
   remove,
   getHistory,
+  getDetailHistory,
   getUserHistory,
 };

@@ -254,6 +254,46 @@ const getHistory = async (req, res, next) => {
     }
 };
 
+const getMyHistoryList = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const schema = Joi.object({
+            skip: Joi.number(),
+            take: Joi.number(),
+            sortBy: Joi.string(),
+            descending: Joi.boolean(),
+            kategoriSoalKecermatanId: Joi.number().required(),
+        }).unknown(true);
+
+        const validate = await schema.validateAsync(req.query);
+        const take = validate.take ? { take: validate.take } : {};
+        const skip = validate.skip ? { skip: validate.skip } : {};
+
+        const whereClause = {
+            userId: userId,
+            kategoriSoalKecermatanId: validate.kategoriSoalKecermatanId,
+        };
+
+        const result = await database.$transaction([
+            database.kecermatanRanking.findMany({
+                ...take,
+                ...skip,
+                where: whereClause,
+                orderBy: {
+                    [validate.sortBy || 'createdAt']: validate.descending ? 'desc' : 'asc',
+                },
+            }),
+            database.kecermatanRanking.count({
+                where: whereClause,
+            }),
+        ]);
+
+        return returnPagination(req, res, result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 const excel = async (req, res, next) => {
     res.status(501).json({ msg: "Not implemented for Kecermatan yet" });
 };
@@ -387,6 +427,7 @@ module.exports = {
   remove,
   find,
   getHistory,
+  getMyHistoryList,
   excel,
   excelTryout,
   insertRanking,

@@ -194,76 +194,98 @@ const getHistory = async (req, res, next) => {
     }).unknown(true);
 
     const validate = await schema.validateAsync(req.query);
-    const take = validate.take ? { take: validate.take } : {};
-    const skip = validate.skip ? { skip: validate.skip } : {};
+    const take = validate.take ? validate.take : 10;
+    const skip = validate.skip ? validate.skip : 0;
 
-    const whereClause = {
-      historyIsian: {
-        some: {
-          kategoriSoalIsianId: validate.kategoriSoalIsianId
-        }
-      }
-    };
-
+    let userIds = undefined;
     if (validate.search) {
-        whereClause.name = {
-            contains: validate.search,
-        };
+        const users = await database.user.findMany({
+            where: {
+                name: { contains: validate.search },
+            },
+            select: { id: true }
+        });
+        userIds = users.map(u => u.id);
+        if (userIds.length === 0) {
+             return returnPagination(req, res, [[], 0]);
+        }
     }
 
-    const result = await database.$transaction([
-      database.user.findMany({
-        ...take,
-        ...skip,
+    const whereClause = {
+        kategoriSoalIsianId: validate.kategoriSoalIsianId,
+        ...(userIds && { userId: { in: userIds } })
+    };
+
+    // Use groupBy to group by Session (User + SessionID)
+    const groupedHistory = await database.historyIsian.groupBy({
+        by: ['userId', 'isianHistoryId'],
         where: whereClause,
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            gambar: true,
-            historyIsian: {
-                where: {
-                    kategoriSoalIsianId: validate.kategoriSoalIsianId
-                },
-                    select: {
-                        createdAt: true,
-                        score: true
-                    }
-            }
+        _count: {
+            soalIsianId: true
+        },
+        _sum: {
+            score: true
+        },
+        _max: {
+            createdAt: true
         },
         orderBy: {
-            updatedAt: 'desc' 
+            _max: {
+                createdAt: 'desc'
+            }
         },
-      }),
-      database.user.count({
-        where: whereClause,
-      }),
-    ]);
+        // Prisma groupBy supports skip/take for the groups
+        skip: skip,
+        take: take,
+    });
+    
+    // Get total count of groups for pagination
+    // We need a separate query for total groups count because groupBy with skip/take returns sliced data
+    // Efficient way: distinct count? Prisma doesn't support count distinct on multiple columns easily.
+    // We can fetch all groups (keys only) or use raw query.
+    // Fallback: fetch valid groups without pagination (might be heavy if huge data)
+    // Or just use the array length from a non-paginated call?
+    // Let's try non-paginated call for count (or just fetch all if dataset is expected reasonable)
+    // For scalability, raw query `SELECT COUNT(DISTINCT userId, isianHistoryId) ...` is better but let's stick to Prisma first.
+    // We will do a second groupBy without skip/take just to get the length.
+    
+    // Optimization: if no search and no complex filtering, strict count might be harder.
+    // Let's use `count` based on the grouping.
+    const allGroups = await database.historyIsian.groupBy({
+        by: ['userId', 'isianHistoryId'],
+        where: whereClause,    
+    });
+    const totalCount = allGroups.length;
 
-    // Transform result
-    const transformedList = result[0].map(user => {
-        const history = user.historyIsian || [];
-        const totalSoal = history.length;
-        const totalScore = history.reduce((acc, curr) => acc + (curr.score || 0), 0);
-        
-        // Find latest submission time
-        const latestInfo = history.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-        const createdAt = latestInfo ? latestInfo.createdAt : null;
+    // Fetch user details for the paginated results
+    const uniqueUserIdsInResult = [...new Set(groupedHistory.map(g => g.userId))];
+    const usersInfo = await database.user.findMany({
+        where: { id: { in: uniqueUserIdsInResult } },
+        select: { id: true, name: true, email: true, gambar: true }
+    });
+    
+    const usersMap = new Map(usersInfo.map(u => [u.id, u]));
 
+    const transformedList = groupedHistory.map(group => {
+        const user = usersMap.get(group.userId) || { id: group.userId, name: 'Unknown', email: '-', gambar: null };
         return {
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                gambar: user.gambar
-            },
-            totalSoal,
-            totalScore,
-            createdAt
+            user: user,
+            totalSoal: group._count.soalIsianId,
+            totalScore: group._sum.score || 0,
+            createdAt: group._max.createdAt,
+            // Pass session ID (isianHistoryId) if needed for detail view link?
+            // The frontend detail link probably needs to know WHICH session to show.
+            // But standard detail route `/manage-soal-isian/:id/history/:userId` uses `userId`.
+            // Does it support session ID filtering? 
+            // Step Id 1635: detail controller `getDetailHistory` filters by `userId` and `kategoriId`.
+            // It gets ALL history for that user.
+            // If we want to show specific session detail, we need to pass `isianHistoryId` to detail page/controller.
+            // For now, let's just return it.
+            isianHistoryId: group.isianHistoryId
         };
     });
 
-    return returnPagination(req, res, [transformedList, result[1]]);
+    return returnPagination(req, res, [transformedList, totalCount]);
   } catch (error) {
     next(error);
   }
@@ -278,13 +300,14 @@ const getDetailHistory = async (req, res, next) => {
       descending: Joi.boolean(),
       kategoriSoalIsianId: Joi.number().required(),
       userId: Joi.number().required(),
+      isianHistoryId: Joi.number().optional(),
     }).unknown(true);
 
     const validate = await schema.validateAsync(req.query);
     const start = validate.skip || 0;
     // const end = start + (validate.take || 100);
 
-    const result = await database.historyIsian.findMany({
+    const queryOptions = {
       where: {
         userId: validate.userId,
         kategoriSoalIsianId: validate.kategoriSoalIsianId
@@ -301,7 +324,13 @@ const getDetailHistory = async (req, res, next) => {
       orderBy: {
         createdAt: 'desc',
       },
-    });
+    };
+
+    if (validate.isianHistoryId) {
+        queryOptions.where.isianHistoryId = validate.isianHistoryId;
+    }
+
+    const result = await database.historyIsian.findMany(queryOptions);
     
     // Deduplicate logic if needed (though historyIsian logic handles duplicates via upsert in other places, 
     // my insert logic earlier was a check-then-update/create, so duplicates shouldn't exist ideally)
@@ -420,6 +449,79 @@ const updateScore = async (req, res, next) => {
   }
 };
 
+const ranking = async (req, res, next) => {
+  try {
+    const schema = Joi.object({
+      skip: Joi.number(),
+      take: Joi.number(),
+      kategoriSoalIsianId: Joi.number().required(),
+    }).unknown(true);
+
+    const validate = await schema.validateAsync(req.query);
+    
+    // Raw query to get ranking based on LATEST session (isianHistoryId) per user
+    // 1. Group by userId + isianHistoryId to get session stats (total score, time)
+    // 2. Rank sessions per user by createdAt desc (ROW_NUMBER)
+    // 3. Select only the latest session (rn = 1)
+    // 4. Order by totalScore desc
+    
+    const result = [];
+    
+    const query = await database.$queryRaw`
+        WITH SessionStats AS (
+            SELECT
+                h.userId,
+                h.isianHistoryId,
+                SUM(h.score) as totalScore,
+                MAX(h.createdAt) as createdAt,
+                h.kategoriSoalIsianId
+            FROM historyIsian h
+            WHERE h.kategoriSoalIsianId = ${validate.kategoriSoalIsianId}
+            GROUP BY h.userId, h.isianHistoryId, h.kategoriSoalIsianId
+        ),
+        UserLatestSession AS (
+            SELECT
+                s.*,
+                ROW_NUMBER() OVER (PARTITION BY s.userId ORDER BY s.createdAt DESC) as rn
+            FROM SessionStats s
+        )
+        SELECT
+            uls.userId,
+            uls.totalScore,
+            uls.createdAt,
+            uls.isianHistoryId,
+            u.name,
+            u.gambar
+        FROM UserLatestSession uls
+        LEFT JOIN User u ON uls.userId = u.id
+        WHERE uls.rn = 1
+        ORDER BY uls.totalScore DESC
+        LIMIT ${validate.take || 10}
+        OFFSET ${validate.skip || 0}
+    `;
+    
+    // Map BigInt to number if needed (Prisma returns BigInt for sums sometimes depending on driver, but SUM(int) usually int)
+    // Actually Prisma raw query returns dictionaries.
+    
+    result[0] = query;
+    
+    // Count total users
+    const countQuery = await database.$queryRaw`
+         SELECT COUNT(DISTINCT userId) as total
+         FROM historyIsian
+         WHERE kategoriSoalIsianId = ${validate.kategoriSoalIsianId}
+    `;
+    
+    // BigInt handling for count
+    const total = Number(countQuery[0]?.total || 0);
+    result[1] = total;
+
+    return returnPagination(req, res, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   get,
   find,
@@ -429,5 +531,6 @@ module.exports = {
   getHistory,
   getDetailHistory,
   getUserHistory,
-  updateScore
+  updateScore,
+  ranking
 };

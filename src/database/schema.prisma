@@ -646,6 +646,7 @@ model historyBacaan {
   userId       Int
   bacaanId     Int
   soalBacaanId Int
+  bacaanHistoryId Int?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   isCorrect    Boolean    @default(false)
@@ -688,6 +689,7 @@ model historyIsian {
   userId              Int
   kategoriSoalIsianId Int
   soalIsianId         Int
+  isianHistoryId      Int?
   jawaban             String
   isCorrect           Boolean           @default(false)
   createdAt           DateTime          @default(now())

@@ -395,7 +395,8 @@ const history = async (req, res, next) => {
               GROUP BY ts.category, ts.kkm, ts.maxPoint
           ) subquery
       )`;
-      e.pointCategory = getCat[0]?.val ? JSON.parse(getCat[0]?.val) : [];
+      const val = getCat[0]?.val;
+      e.pointCategory = typeof val === 'string' ? JSON.parse(val) : (val || []);
     });
 
     result[1] =
@@ -490,7 +491,8 @@ const ranking = async (req, res, next) => {
             GROUP BY ts.category, ts.kkm, ts.maxPoint
         ) subquery
     )`;
-      e.pointCategory = getCat[0]?.val ? JSON.parse(getCat[0]?.val) : [];
+      const val = getCat[0]?.val;
+      e.pointCategory = typeof val === 'string' ? JSON.parse(val) : (val || []);
     });
 
     const count = await database.$queryRaw`
@@ -654,7 +656,7 @@ ORDER BY
       data: {
         ...result[0],
         pointCategory: result[0]?.pointCategory
-          ? JSON.parse(result[0]?.pointCategory)
+          ? (typeof result[0]?.pointCategory === 'string' ? JSON.parse(result[0]?.pointCategory) : result[0]?.pointCategory)
           : [],
       },
       msg: "Berhasil Mendapatkan Data",

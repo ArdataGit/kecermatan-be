@@ -10,41 +10,24 @@ const insert = async (req, res, next) => {
       soalIsianId: Joi.number().required(),
       jawaban: Joi.string().required(),
       kategoriSoalIsianId: Joi.number().required(),
+      isianHistoryId: Joi.number().optional(),
     });
 
     const validate = await schema.validateAsync(req.body);
     const userId = req.user.id;
 
     // Check if history already exists for this user and question
-    const existingHistory = await database.historyIsian.findFirst({
-        where: {
+    // Always create new history entry as requested
+    const result = await database.historyIsian.create({
+        data: {
             userId: userId,
-            soalIsianId: validate.soalIsianId
-        }
+            kategoriSoalIsianId: validate.kategoriSoalIsianId,
+            soalIsianId: validate.soalIsianId,
+            jawaban: validate.jawaban,
+            isCorrect: false,
+            isianHistoryId: validate.isianHistoryId,
+        },
     });
-
-    let result;
-    if (existingHistory) {
-        // Update existing
-        result = await database.historyIsian.update({
-            where: { id: existingHistory.id },
-            data: {
-                jawaban: validate.jawaban,
-                // isCorrect: false // Default/Reset to false on edit? Or keep as is? Schema default is false.
-            }
-        });
-    } else {
-        // Create new
-        result = await database.historyIsian.create({
-            data: {
-                userId: userId,
-                kategoriSoalIsianId: validate.kategoriSoalIsianId,
-                soalIsianId: validate.soalIsianId,
-                jawaban: validate.jawaban,
-                isCorrect: false,
-            },
-        });
-    }
 
     res.status(200).json({
       data: result,
@@ -62,6 +45,7 @@ const getMyHistory = async (req, res, next) => {
       skip: Joi.number(),
       take: Joi.number(),
       kategoriSoalIsianId: Joi.number().optional(),
+      isianHistoryId: Joi.number().optional(),
     }).unknown(true);
 
     const validate = await schema.validateAsync(req.query);
@@ -73,6 +57,9 @@ const getMyHistory = async (req, res, next) => {
     };
     
     if (validate.kategoriSoalIsianId) where.kategoriSoalIsianId = validate.kategoriSoalIsianId;
+    if (validate.isianHistoryId) {
+        where.isianHistoryId = validate.isianHistoryId;
+    }
 
     const result = await database.$transaction([
         database.historyIsian.findMany({
@@ -94,7 +81,94 @@ const getMyHistory = async (req, res, next) => {
   }
 }
 
+const generateSessionId = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const maxId = await database.historyIsian.aggregate({
+            _max: {
+                isianHistoryId: true
+            },
+            where: {
+                userId: userId
+            }
+        });
+        
+        const newId = (maxId._max.isianHistoryId || 0) + 1;
+        
+        res.status(200).json({
+            data: newId,
+            msg: 'Berhasil generate session ID baru'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getMySessionList = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const schema = Joi.object({
+      skip: Joi.number(),
+      take: Joi.number(),
+      kategoriSoalIsianId: Joi.number().required(),
+    }).unknown(true);
+
+    const validate = await schema.validateAsync(req.query);
+    const take = validate.take ? validate.take : 10;
+    const skip = validate.skip ? validate.skip : 0;
+
+    const whereClause = {
+        userId: userId,
+        kategoriSoalIsianId: validate.kategoriSoalIsianId,
+    };
+
+    const groupedHistory = await database.historyIsian.groupBy({
+        by: ['isianHistoryId'],
+        where: whereClause,
+        _count: {
+            soalIsianId: true
+        },
+        _sum: {
+            score: true
+        },
+        _max: {
+            createdAt: true
+        },
+        orderBy: {
+            _max: {
+                createdAt: 'desc'
+            }
+        },
+        skip: skip,
+        take: take,
+    });
+    
+    // Get total count (using non-paginated group by)
+    const allGroups = await database.historyIsian.groupBy({
+        by: ['isianHistoryId'],
+        where: whereClause,    
+    });
+    const totalCount = allGroups.length;
+
+    const transformedList = groupedHistory.map(group => {
+        return {
+            totalSoal: group._count.soalIsianId,
+            totalScore: group._sum.score || 0,
+            createdAt: group._max.createdAt,
+            isianHistoryId: group.isianHistoryId
+        };
+    });
+
+    return returnPagination(req, res, [transformedList, totalCount]);
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   insert,
-  getMyHistory
+  getMyHistory,
+  generateSessionId,
+  getMySessionList
 };
