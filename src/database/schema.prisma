@@ -60,6 +60,9 @@ model User {
   affiliateWithdrawals AffiliateWithdrawal[]
   historyBacaan        historyBacaan[]
   historyIsian         historyIsian[]
+  latihanKiasan        latihanKiasan[]
+  kategoriLatihanKecermatan kategoriLatihanKecermatan[]
+  latihanKecermatanHistory latihanKecermatanHistory[]
   Ticket               tickets[]
 
   @@index([affiliateFromUserId], map: "User_affiliateFromUserId_fkey")
@@ -828,4 +831,72 @@ enum AffiliateWithdrawalStatus {
 enum enumTypeComission {
   percent
   nominal
+}
+
+model kategoriLatihanKecermatan{
+  id                       Int                        @id @default(autoincrement())
+  userId                   Int
+  judul_kategori           String
+  keterangan               String?                    @db.Text
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+
+  latihanKiasan            latihanKiasan[]
+  latihanKecermatanHistory latihanKecermatanHistory[]
+  user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model latihanKiasan{
+  id                       Int                    @id @default(autoincrement())
+  userId                   Int 
+  kategoriLatihanKecermatanId Int?
+ 
+  kiasan                   Json
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  waktu                    Int                    @default(0)
+  statusSelesai            Boolean                @default(false) 
+  soalLatihanKecermatan    soalLatihanKecermatan[]
+  latihanKecermatanHistory latihanKecermatanHistory[]
+
+  kategoriLatihanKecermatan kategoriLatihanKecermatan? @relation(fields: [kategoriLatihanKecermatanId], references: [id], onDelete: Cascade)
+  user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model soalLatihanKecermatan{
+  id                Int                 @id @default(autoincrement())
+  kiasanId          Int
+  soal              Json
+  jawaban           String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  latihanKiasan            latihanKiasan              @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
+  latihanKecermatanHistory latihanKecermatanHistory[]
+
+  @@index([kiasanId])
+}
+
+
+
+model latihanKecermatanHistory {
+  id                       Int                        @id @default(autoincrement())
+  userId                   Int
+  kategoriLatihanKecermatanId Int
+  latihanKiasanId          Int?
+  soalLatihanKecermatanId  Int
+  jawaban                  String
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+
+  kategoriLatihanKecermatan kategoriLatihanKecermatan @relation(fields: [kategoriLatihanKecermatanId], references: [id], onDelete: Cascade)
+  latihanKiasan            latihanKiasan?             @relation(fields: [latihanKiasanId], references: [id], onDelete: Cascade)
+  soalLatihanKecermatan    soalLatihanKecermatan      @relation(fields: [soalLatihanKecermatanId], references: [id], onDelete: Cascade)
+  user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([kategoriLatihanKecermatanId])
+  @@index([latihanKiasanId])
+  @@index([soalLatihanKecermatanId])
+  @@index([userId])
 }

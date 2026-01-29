@@ -43,6 +43,8 @@ const kategoriSoalBacaanRouter = require('#api/kategori-soal-bacaan/route.js');
 const kategoriSoalIsianRouter = require('#api/kategori-soal-isian/route.js');
 const soalIsianRouter = require('#api/soal-isian/route.js');
 const soalBacaanRouter = require('#api/soal-bacaan/route.js');
+const latihanKiasanRouter = require('#api/latihan-kiasan/route.js');
+const kategoriLatihanKecermatanRouter = require('#api/kategori-latihan-kecermatan/route.js');
 
 // User Routers for Bacaan
 const kategoriSoalBacaanUserRouter = require('#api/kategori-soal-bacaan/route.user.js');
@@ -107,6 +109,8 @@ router.use('/api/admin/kategori-soal-bacaan', kategoriSoalBacaanRouter);
 router.use('/api/admin/soal-bacaan', soalBacaanRouter);
 router.use('/api/admin/kategori-soal-isian', kategoriSoalIsianRouter);
 router.use('/api/admin/soal-isian', soalIsianRouter);
+router.use('/api/latihan-kiasan', authenticateUser, latihanKiasanRouter);
+router.use('/api/kategori-latihan-kecermatan', authenticateUser, kategoriLatihanKecermatanRouter);
 
 router.use('/api/admin', authenticateUser, authorizeRoles('ADMIN'));
 router.use('/api/admin/users', manageUserRouter);
