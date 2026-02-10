@@ -63,6 +63,8 @@ model User {
   latihanKiasan        latihanKiasan[]
   kategoriLatihanKecermatan kategoriLatihanKecermatan[]
   latihanKecermatanHistory latihanKecermatanHistory[]
+  LatihanKecermatanRanking LatihanKecermatanRanking[]
+  ChatTicket           ChatTicket[]
   Ticket               tickets[]
 
   @@index([affiliateFromUserId], map: "User_affiliateFromUserId_fkey")
@@ -110,6 +112,7 @@ model tickets {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ChatTicket    ChatTicket[]
 
   @@index([userId], map: "Ticket_userId_fkey")
 }
@@ -579,6 +582,16 @@ model KecermatanRanking {
   totalBenar               Int
   totalSalah               Int
   waktu                    Int
+  pankerScore              Float                  @default(0)
+  pankerCategory           String?
+  tiankerScore             Float                  @default(0)
+  tiankerCategory          String?
+  jankerScore              Float                  @default(0)
+  jankerCategory           String?
+  hankerScore              Float                  @default(0)
+  hankerCategory           String?
+  finalScore               Float                  @default(0)
+  finalCategory            String?
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
   kategoriSoalKecermatan   KategoriSoalKecermatan @relation(fields: [kategoriSoalKecermatanId], references: [id], onDelete: Cascade)
@@ -587,6 +600,7 @@ model KecermatanRanking {
   @@index([kategoriSoalKecermatanId], map: "KecermatanRanking_kategoriSoalKecermatanId_fkey")
   @@index([userId], map: "KecermatanRanking_userId_fkey")
 }
+
 
 model KecermatanHistory {
   id                       Int                    @id @default(autoincrement())
@@ -705,6 +719,134 @@ model historyIsian {
   @@index([userId])
   @@index([kategoriSoalIsianId])
   @@index([soalIsianId])
+}
+
+model kategoriLatihanKecermatan {
+  id                       Int                        @id @default(autoincrement())
+  userId                   Int
+  judul_kategori           String
+  keterangan               String?                    @db.Text
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latihanKecermatanHistory latihanKecermatanHistory[]
+  latihanKiasan            latihanKiasan[]
+  LatihanKecermatanRanking LatihanKecermatanRanking[]
+
+  @@index([userId], map: "kategoriLatihanKecermatan_userId_fkey")
+}
+
+model latihanKiasan {
+  id                          Int                        @id @default(autoincrement())
+  userId                      Int
+  kategoriLatihanKecermatanId Int?
+  kiasan                      Json
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  waktu                       Int                        @default(0)
+  statusSelesai               Boolean                    @default(false)
+  latihanKecermatanHistory    latihanKecermatanHistory[]
+  kategoriLatihanKecermatan   kategoriLatihanKecermatan? @relation(fields: [kategoriLatihanKecermatanId], references: [id], onDelete: Cascade)
+  user                        User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  soalLatihanKecermatan       soalLatihanKecermatan[]
+
+  @@index([kategoriLatihanKecermatanId], map: "latihanKiasan_kategoriLatihanKecermatanId_fkey")
+  @@index([userId], map: "latihanKiasan_userId_fkey")
+}
+
+model soalLatihanKecermatan {
+  id                       Int                        @id @default(autoincrement())
+  kiasanId                 Int
+  soal                     Json
+  jawaban                  String
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  latihanKecermatanHistory latihanKecermatanHistory[]
+  latihanKiasan            latihanKiasan              @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
+
+  @@index([kiasanId])
+}
+
+model latihanKecermatanHistory {
+  id                          Int                       @id @default(autoincrement())
+  userId                      Int
+  kategoriLatihanKecermatanId Int
+  latihanKiasanId             Int?
+  soalLatihanKecermatanId     Int
+  jawaban                     String
+  createdAt                   DateTime                  @default(now())
+  updatedAt                   DateTime                  @updatedAt
+  kategoriLatihanKecermatan   kategoriLatihanKecermatan @relation(fields: [kategoriLatihanKecermatanId], references: [id], onDelete: Cascade, map: "latihanKecermatanHistory_kategoriLatihan_fkey")
+  latihanKiasan               latihanKiasan?            @relation(fields: [latihanKiasanId], references: [id], onDelete: Cascade, map: "latihanKecermatanHistory_latihanKiasan_fkey")
+  soalLatihanKecermatan       soalLatihanKecermatan     @relation(fields: [soalLatihanKecermatanId], references: [id], onDelete: Cascade, map: "latihanKecermatanHistory_soalLatihan_fkey")
+  user                        User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([kategoriLatihanKecermatanId])
+  @@index([latihanKiasanId])
+  @@index([soalLatihanKecermatanId])
+  @@index([userId])
+}
+
+model LatihanKecermatanRanking {
+  id                          Int                        @id @default(autoincrement())
+  userId                      Int
+  kategoriLatihanKecermatanId Int
+  score                       Int
+  totalSoal                   Int
+  totalBenar                  Int
+  totalSalah                  Int
+  waktu                       Int
+  pankerScore                 Float                      @default(0)
+  pankerCategory              String?
+  tiankerScore                Float                      @default(0)
+  tiankerCategory             String?
+  jankerScore                 Float                      @default(0)
+  jankerCategory              String?
+  hankerScore                 Float                      @default(0)
+  hankerCategory              String?
+  finalScore                  Float                      @default(0)
+  finalCategory               String?
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  kategoriLatihanKecermatan   kategoriLatihanKecermatan  @relation(fields: [kategoriLatihanKecermatanId], references: [id], onDelete: Cascade)
+  user                        User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([kategoriLatihanKecermatanId], map: "LatihanKecermatanRanking_kategoriLatihanKecermatanId_fkey")
+  @@index([userId], map: "LatihanKecermatanRanking_userId_fkey")
+}
+
+model ChatTicket {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  ticketId  Int
+  message   String    @db.Text
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @default(now())
+  tickets   tickets   @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([ticketId], map: "ChatTicket_ticketId_fkey")
+  @@index([userId], map: "ChatTicket_userId_fkey")
+}
+
+model KalenderEvent {
+  id         Int      @id @default(autoincrement())
+  nama       String
+  keterangan String?  @db.Text
+  startDate  DateTime @default(now())
+  endDate    DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+}
+
+model Testimoni {
+  id         Int      @id @default(autoincrement())
+  nama       String
+  pekerjaan  String?  @db.Text
+  rating     Int
+  isi        String?  @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime
 }
 
 enum EnumRole {
@@ -831,72 +973,4 @@ enum AffiliateWithdrawalStatus {
 enum enumTypeComission {
   percent
   nominal
-}
-
-model kategoriLatihanKecermatan{
-  id                       Int                        @id @default(autoincrement())
-  userId                   Int
-  judul_kategori           String
-  keterangan               String?                    @db.Text
-  createdAt                DateTime                   @default(now())
-  updatedAt                DateTime                   @updatedAt
-
-  latihanKiasan            latihanKiasan[]
-  latihanKecermatanHistory latihanKecermatanHistory[]
-  user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model latihanKiasan{
-  id                       Int                    @id @default(autoincrement())
-  userId                   Int 
-  kategoriLatihanKecermatanId Int?
- 
-  kiasan                   Json
-  createdAt                DateTime               @default(now())
-  updatedAt                DateTime               @updatedAt
-  waktu                    Int                    @default(0)
-  statusSelesai            Boolean                @default(false) 
-  soalLatihanKecermatan    soalLatihanKecermatan[]
-  latihanKecermatanHistory latihanKecermatanHistory[]
-
-  kategoriLatihanKecermatan kategoriLatihanKecermatan? @relation(fields: [kategoriLatihanKecermatanId], references: [id], onDelete: Cascade)
-  user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-
-model soalLatihanKecermatan{
-  id                Int                 @id @default(autoincrement())
-  kiasanId          Int
-  soal              Json
-  jawaban           String
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-
-  latihanKiasan            latihanKiasan              @relation(fields: [kiasanId], references: [id], onDelete: Cascade)
-  latihanKecermatanHistory latihanKecermatanHistory[]
-
-  @@index([kiasanId])
-}
-
-
-
-model latihanKecermatanHistory {
-  id                       Int                        @id @default(autoincrement())
-  userId                   Int
-  kategoriLatihanKecermatanId Int
-  latihanKiasanId          Int?
-  soalLatihanKecermatanId  Int
-  jawaban                  String
-  createdAt                DateTime                   @default(now())
-  updatedAt                DateTime                   @updatedAt
-
-  kategoriLatihanKecermatan kategoriLatihanKecermatan @relation(fields: [kategoriLatihanKecermatanId], references: [id], onDelete: Cascade)
-  latihanKiasan            latihanKiasan?             @relation(fields: [latihanKiasanId], references: [id], onDelete: Cascade)
-  soalLatihanKecermatan    soalLatihanKecermatan      @relation(fields: [soalLatihanKecermatanId], references: [id], onDelete: Cascade)
-  user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([kategoriLatihanKecermatanId])
-  @@index([latihanKiasanId])
-  @@index([soalLatihanKecermatanId])
-  @@index([userId])
 }

@@ -109,9 +109,9 @@ const insert = async (req, res, next) => {
     const validate = await schema.validateAsync(req.body);
 
     // Verify parent exists if provided
-    if (validate.kategoriSoalKecermatanId) {
+    if (validate.kategoriLatihanKecermatanId) {
       const parentExist = await database.kategoriLatihanKecermatan.findUnique({
-        where: { id: validate.kategoriSoalKecermatanId },
+        where: { id: validate.kategoriLatihanKecermatanId },
       });
       if (!parentExist) throw new BadRequestError('Kategori Latihan Kecermatan tidak ditemukan');
     }
@@ -119,7 +119,7 @@ const insert = async (req, res, next) => {
     const result = await database.latihanKiasan.create({
       data: {
         userId: req.user.id,
-        kategoriLatihanKecermatanId: validate.kategoriSoalKecermatanId,
+        kategoriLatihanKecermatanId: validate.kategoriLatihanKecermatanId,
         kiasan: validate.kiasan,
         waktu: validate.waktu,
       },

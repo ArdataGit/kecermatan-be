@@ -1,5 +1,5 @@
-const returnPagination = (req, res, result) => {
-  res.status(200).json({
+const returnPagination = (req, res, result, metadata) => {
+  const response = {
     data: {
       list: result[0],
       pagination: {
@@ -10,7 +10,14 @@ const returnPagination = (req, res, result) => {
       },
     },
     msg: 'Get all data',
-  });
+  };
+
+  // Include metadata if provided
+  if (metadata) {
+    response.data.metadata = metadata;
+  }
+
+  res.status(200).json(response);
 };
 
 module.exports = returnPagination;

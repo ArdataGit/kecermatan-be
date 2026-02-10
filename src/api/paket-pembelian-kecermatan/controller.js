@@ -360,8 +360,18 @@ const insertRanking = async (req, res, next) => {
             score: Joi.number().required(),
             totalSoal: Joi.number().required(),
             totalSalah: Joi.number().required(),
-            totalBenar: Joi.number().required(),  
-        })  
+            totalBenar: Joi.number().required(),
+            pankerScore: Joi.number().optional(),
+            pankerCategory: Joi.string().optional(),
+            tiankerScore: Joi.number().optional(),
+            tiankerCategory: Joi.string().optional(),
+            jankerScore: Joi.number().optional(),
+            jankerCategory: Joi.string().optional(),
+            hankerScore: Joi.number().optional(),
+            hankerCategory: Joi.string().optional(),
+            finalScore: Joi.number().optional(),
+            finalCategory: Joi.string().optional(),
+        })
 
         const validate = await schema.validateAsync(req.body);
 
@@ -374,6 +384,16 @@ const insertRanking = async (req, res, next) => {
                 totalSalah: validate.totalSalah,
                 totalBenar: validate.totalBenar,
                 waktu: 0, // Default value as it's required in schema but not in Joi
+                pankerScore: validate.pankerScore || 0,
+                pankerCategory: validate.pankerCategory,
+                tiankerScore: validate.tiankerScore || 0,
+                tiankerCategory: validate.tiankerCategory,
+                jankerScore: validate.jankerScore || 0,
+                jankerCategory: validate.jankerCategory,
+                hankerScore: validate.hankerScore || 0,
+                hankerCategory: validate.hankerCategory,
+                finalScore: validate.finalScore || 0,
+                finalCategory: validate.finalCategory,
             },
         });
 

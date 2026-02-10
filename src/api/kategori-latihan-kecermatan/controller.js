@@ -312,7 +312,15 @@ const getUserHistory = async (req, res, next) => {
     const take = validate.take ? { take: validate.take } : {};
     const skip = validate.skip ? { skip: validate.skip } : {};
 
+    const latihanKecermatanRanking = await database.latihanKecermatanRanking.findFirst({
+      where: {
+        userId: Number(validate.userId),
+        kategoriLatihanKecermatanId: Number(validate.kategoriLatihanKecermatanId),
+      },
+    });
+
     const result = await database.$transaction([
+
       database.latihanKecermatanHistory.findMany({
         ...take,
         ...skip,
@@ -342,8 +350,64 @@ const getUserHistory = async (req, res, next) => {
       }),
     ]);
 
-    return returnPagination(req, res, result);
+    return returnPagination(req, res, result, latihanKecermatanRanking);
   } catch (error) {
+    next(error);
+  }
+};
+
+const insertRanking = async (req, res, next) => {
+  try {
+    const schema = Joi.object({
+      kategoriLatihanKecermatanId: Joi.number().required(),
+      userId: Joi.number().required(),
+      score: Joi.number().required(),
+      totalSoal: Joi.number().required(),
+      totalSalah: Joi.number().required(),
+      totalBenar: Joi.number().required(),
+      waktu: Joi.number().default(0),
+      pankerScore: Joi.number().optional(),
+      pankerCategory: Joi.string().optional(),
+      tiankerScore: Joi.number().optional(),
+      tiankerCategory: Joi.string().optional(),
+      jankerScore: Joi.number().optional(),
+      jankerCategory: Joi.string().optional(),
+      hankerScore: Joi.number().optional(),
+      hankerCategory: Joi.string().optional(),
+      finalScore: Joi.number().optional(),
+      finalCategory: Joi.string().optional(),
+    });
+
+    const validate = await schema.validateAsync(req.body);
+
+    const result = await database.latihanKecermatanRanking.create({
+      data: {
+        kategoriLatihanKecermatanId: validate.kategoriLatihanKecermatanId,
+        userId: validate.userId,
+        score: validate.score,
+        totalSoal: validate.totalSoal,
+        totalSalah: validate.totalSalah,
+        totalBenar: validate.totalBenar,
+        waktu: validate.waktu || 0,
+        pankerScore: validate.pankerScore || 0,
+        pankerCategory: validate.pankerCategory,
+        tiankerScore: validate.tiankerScore || 0,
+        tiankerCategory: validate.tiankerCategory,
+        jankerScore: validate.jankerScore || 0,
+        jankerCategory: validate.jankerCategory,
+        hankerScore: validate.hankerScore || 0,
+        hankerCategory: validate.hankerCategory,
+        finalScore: validate.finalScore || 0,
+        finalCategory: validate.finalCategory,
+      },
+    });
+
+    res.status(200).json({
+      data: result,
+      msg: 'Berhasil menambahkan Ranking Latihan Kecermatan',
+    });
+  } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -356,4 +420,5 @@ module.exports = {
   remove,
   getHistory,
   getUserHistory,
+  insertRanking,
 };
