@@ -215,7 +215,7 @@ const createPayment = async (req, res, next) => {
           duration: checkingPaket.durasi,
           expiredAt: checkingPaket.durasi
             ? moment()
-                .add(checkingPaket.durasi * 31, 'days')
+                .add(checkingPaket.durasi, 'days')
                 .toDate()
             : null,
           namaPaket: checkingPaket.nama,
@@ -293,7 +293,7 @@ const createPayment = async (req, res, next) => {
           duration: checkingPaket.durasi,
           expiredAt: checkingPaket.durasi
             ? moment()
-                .add(checkingPaket.durasi * 31, 'days')
+                .add(checkingPaket.durasi, 'days')
                 .toDate()
             : null,
           namaPaket: checkingPaket.nama,
