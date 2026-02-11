@@ -151,6 +151,84 @@ const login = async (req, res, next) => {
   }
 };
 
+const { verifyGoogleToken } = require('../../services/google-auth.service');
+
+const googleLogin = async (req, res, next) => {
+  try {
+    const { access_token } = req.body;
+
+    if (!access_token) {
+      throw new BadRequestError('Access Token diperlukan');
+    }
+
+    // Verify Google Token
+    const googleUser = await verifyGoogleToken(access_token);
+    
+    // Check if user exists
+    let user = await database.User.findUnique({
+      where: { email: googleUser.email },
+    });
+
+    if (!user) {
+      // Create new user
+      const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+      
+      // Generate affiliate code
+      let affiliateCode;
+      let unique = false;
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (!unique && attempts < maxAttempts) {
+        attempts++;
+        affiliateCode = `AFFU${moment().unix()}${Math.floor(Math.random() * 900 + 100)}`;
+        const exists = await database.User.findFirst({
+          where: { affiliateCode },
+        });
+        if (!exists) unique = true;
+        else await new Promise((r) => setTimeout(r, 50));
+      }
+
+      user = await database.User.create({
+        data: {
+          name: googleUser.name,
+          email: googleUser.email,
+          password: bcrypt.hashSync(randomPassword, 10),
+          verifyAt: new Date(), // Auto verify for Google users
+          affiliateCode,
+          affiliateLink: `https://bimbel.fungsional.id/auth/register/${affiliateCode}`,
+          affiliateStatus: 'active',
+          affiliateCommission: 0,
+          affiliateBalance: 0.0,
+        },
+      });
+    }
+
+    // Login logic
+    await database.User.update({
+      where: { id: user.id },
+      data: {
+        jwtVersion: { increment: 1 },
+      },
+    });
+
+    user.jwtVersion += 1;
+    const token = generateToken(user);
+
+    res.status(StatusCodes.OK).json({
+      data: {
+        token,
+        user,
+      },
+      msg: 'Login Berhasil via Google',
+    });
+
+  } catch (error) {
+    console.error('Google Login Error:', error);
+    next(error);
+  }
+};
+
 const confirmEmail = async (req, res, next) => {
   try {
     const { token } = req.params;
@@ -243,6 +321,7 @@ const resetPassword = async (req, res, next) => {
 module.exports = {
   register,
   login,
+  googleLogin,
   forgotPassword,
   resetPassword,
   confirmEmail,

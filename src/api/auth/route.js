@@ -5,6 +5,7 @@ const router = express.Router();
 const {
   register,
   login,
+  googleLogin,
   forgotPassword,
   confirmEmail,
   resetPassword,
@@ -12,6 +13,7 @@ const {
 
 router.post('/register', register);
 router.post('/login', login);
+router.post('/google-login', googleLogin);
 router.post('/forgot-password', forgotPassword);
 router.get('/confirm-email/:token', confirmEmail);
 router.post('/reset-password/', resetPassword);
