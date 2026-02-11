@@ -12,11 +12,17 @@ const get = async (req, res, next) => {
       sortBy: Joi.string(),
       descending: Joi.boolean(),
       filters: Joi.object(),
+      userId: Joi.number().optional(),
     }).unknown(true);
 
     const validate = await schema.validateAsync(req.query);
 
     const take = validate.take ? { take: validate.take } : {};
+    
+    const whereClause = {
+        ...filterToJson(validate),
+        ...(validate.userId ? { userId: Number(validate.userId) } : {}),
+    };
 
     const result = await database.$transaction([
       database.kategoriLatihanKecermatan.findMany({
@@ -25,9 +31,7 @@ const get = async (req, res, next) => {
         orderBy: {
           [validate.sortBy || 'createdAt']: validate.descending ? 'desc' : 'asc',
         },
-        where: {
-          ...filterToJson(validate),
-        },
+        where: whereClause,
         include: {
           user: {
             select: {
@@ -42,7 +46,7 @@ const get = async (req, res, next) => {
         },
       }),
       database.kategoriLatihanKecermatan.count({
-        where: filterToJson(validate),
+        where: whereClause,
       }),
     ]);
 
