@@ -9,12 +9,14 @@ const changeProfile = async (req, res, next) => {
   try {
     const schema = Joi.object({
       name: Joi.string().required(),
-      email: Joi.string().email().required(),
+      email: Joi.string().email(),
       noWA: Joi.string().required(),
       alamat: Joi.string().required(),
       provinsi: Joi.string().required(),
       kabupaten: Joi.string().required(),
       kecamatan: Joi.string().required(),
+      jurusan: Joi.string().allow('', null),
+      ttl: Joi.string().allow('', null),
       gambar: Joi.string(),
     }).unknown(true);
 
@@ -41,12 +43,14 @@ const changeProfile = async (req, res, next) => {
       },
       data: {
         name: validate.name,
-        email: validate.email, // perbaikan ✅
+        // email: validate.email, // email is disabled in frontend, do not update if not present
         noWA: validate.noWA,
         alamat: validate.alamat,
         provinsi: validate.provinsi,
         kabupaten: validate.kabupaten,
         kecamatan: validate.kecamatan,
+        jurusan: validate.jurusan,
+        ttl: validate.ttl,
         gambar: validate.gambar || isExist.gambar,
       },
     });
@@ -62,6 +66,7 @@ const changeProfile = async (req, res, next) => {
       msg: "Berhasil mengubah profile",
     });
   } catch (error) {
+    console.log("ERROR CHANGE PROFILE:", error);
     next(error);
   }
 };

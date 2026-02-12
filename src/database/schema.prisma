@@ -34,6 +34,8 @@ model User {
   provinsi             String?
   kabupaten            String?
   kecamatan            String?
+  jurusan              String?
+  ttl                  String?
   password             String
   gambar               String?               @default("public/DEFAULT_USER.png")
   role                 EnumRole              @default(USER)
